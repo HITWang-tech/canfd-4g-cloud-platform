@@ -1,0 +1,12 @@
+node_modules/
+.env
+data/
+*.log
+*.bin
+*.asc
+*.dbc
+*.pdf
+*.xlsx
+*报文内容*
+screenshots/
+__pycache__/

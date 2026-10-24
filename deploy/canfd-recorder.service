@@ -1,0 +1,23 @@
+[Unit]
+Description=CANFD 4G Recorder TCP Receiver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=canfd-recorder
+Group=canfd-recorder
+WorkingDirectory=/opt/canfd-4g-cloud-platform
+EnvironmentFile=/etc/canfd-recorder.env
+ExecStart=/usr/bin/node /opt/canfd-4g-cloud-platform/server/collector.mjs
+Restart=on-failure
+RestartSec=3
+StateDirectory=canfd-recorder
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/canfd-recorder
+
+[Install]
+WantedBy=multi-user.target

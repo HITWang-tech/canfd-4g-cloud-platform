@@ -36,6 +36,25 @@ TCP 收包和网页 HTTPS 接入分两步验证。后续可用受浏览器信任
 
 获得已验证的 HTTPS 根地址后，在网页“平台设置 → 实时数据接入”填写地址及访问令牌。
 
+### 当前无域名联调：自动建立临时 HTTPS 接口
+
+接收程序显示 `RECEIVER_OK` 后，在服务器管理员 PowerShell 整行执行：
+
+```powershell
+$f=Join-Path $env:TEMP 'CANFD4G-HTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/Enable-HTTPS.ps1' -OutFile $f; if ($?) { & $f }
+```
+
+脚本核对 Cloudflare 官方 2026.10.0 连接程序的 SHA256，创建独立的 `CANFD4G-HTTPS` 开机任务。不会更改 TCP 接收任务、开放 19080 或占用 80/443。临时 HTTPS 中转只代理本机 19080，API 仍要求访问令牌。
+
+只有在外部 HTTPS、未认证拒绝、已认证数据以及浏览器 CORS 预检均验证通过后，才显示 `HTTPS_READY`。若显示 `HTTPS_PENDING`，请查看 `C:\ProgramData\CANFD4G\logs\https-bridge.log`。需要服务器能出站访问 Cloudflare（HTTP/2 使用 TCP 7844）及隧道分配服务；脚本不会关闭防火墙或跳过 TLS 验证。
+
+- 服务器内打开 `C:\ProgramData\CANFD4G\data\Open-Live.url`，自动打开 GitHub 网页并连接。访问令牌放在 URL 片段，网页读取后立即清除，不写入浏览器持久设置。
+- 自己电脑使用：将 `C:\ProgramData\CANFD4G\data\live-connection.json` 通过远程桌面复制到自己电脑，在网页点击“连接实时 → 导入服务器连接配置”。
+- 这两个文件包含访问令牌，请勿上传仓库、发送聊天或截取内容。日志和 `HTTPS_URL` 不包含令牌。
+- 临时地址随 HTTPS 进程重启变化。重新运行脚本后使用新生成的连接文件。此方式用于联调，无固定地址或可用性保证。后续固定部署需配置域名与固定隧道或受信任证书。
+
+`HTTPS_READY` 仅说明网页接口可用；真实设备需继续连接 `公网IP:19090`。网页统计无设备、无有效帧时，不代表已有实车数据。
+
 访问令牌位于服务器的 config.json，仅填写进网页访问令牌输入框，不要提交到仓库或包含在截图中。
 
 ## 目录与维护

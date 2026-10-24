@@ -36,7 +36,7 @@ function Download-Checked([string]$Url,[string]$Destination,[string]$Expected){
 }
 Write-Host '[1/3] Downloading and verifying HTTPS connector...'
 Download-Checked 'https://github.com/cloudflare/cloudflared/releases/download/2026.10.0/cloudflared-windows-amd64.exe' (Join-Path $InstallDir 'runtime\cloudflared.exe') '86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c'
-$bridgeHash='509500a6d84bf908d398bb502123fd75bb40e36d51e77c1697cfa6e407622b52'
+$bridgeHash='98f55462df41b46681c688deaf570c8521518e2495444d0f310009863ee023ab'
 Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/https-bridge.mjs' $runner $bridgeHash
 [IO.File]::WriteAllText((Join-Path $InstallDir 'https-empty.yml'),'{}',(New-Object Text.UTF8Encoding($false)))
 if($PrepareOnly){Write-Host 'HTTPS_PREPARED_ONLY';return}

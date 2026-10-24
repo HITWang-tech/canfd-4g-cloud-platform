@@ -1,0 +1,3 @@
+# Keep downloaded, hash-verified JavaScript identical on Windows and GitHub Pages.
+server/https-bridge.mjs text eol=lf
+web/downloads/https-bridge.mjs text eol=lf

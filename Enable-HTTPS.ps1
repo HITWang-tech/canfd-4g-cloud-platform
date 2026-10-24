@@ -28,14 +28,53 @@ if(-not $PrepareOnly){
 function Download-Checked([string]$Url,[string]$Destination,[string]$Expected){
  if((Test-Path -LiteralPath $Destination) -and (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash -eq $Expected){return}
  $temporary=$Destination+'.download'
- for($attempt=0;$attempt -lt 3;$attempt++){
-  try{Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $temporary -TimeoutSec 120;break}catch{if($attempt -eq 2){throw};Start-Sleep -Seconds 2}
+ for($attempt=1;$attempt -le 2;$attempt++){
+  $response=$null;$inputStream=$null;$outputStream=$null
+  try{
+   Write-Host ('Connecting to download server (attempt '+$attempt+'/2)...')
+   $request=[Net.HttpWebRequest]::Create($Url)
+   $request.Timeout=20000;$request.ReadWriteTimeout=20000
+   $request.UserAgent='CANFD4G-Installer/20261024.3'
+   $response=$request.GetResponse();$inputStream=$response.GetResponseStream()
+   $outputStream=[IO.File]::Create($temporary)
+   $buffer=New-Object byte[] 65536
+   $received=0L;$clock=[Diagnostics.Stopwatch]::StartNew();$lastDisplay=-3.0
+   while(($count=$inputStream.Read($buffer,0,$buffer.Length)) -gt 0){
+    $outputStream.Write($buffer,0,$count);$received+=$count
+    if($clock.Elapsed.TotalSeconds-$lastDisplay -ge 2){
+     $total=if($response.ContentLength -gt 0){' / '+[Math]::Round($response.ContentLength/1MB,1)+' MB'}else{''}
+     Write-Host ('Downloaded '+[Math]::Round($received/1MB,1)+' MB'+$total)
+     $lastDisplay=$clock.Elapsed.TotalSeconds
+    }
+    if($clock.Elapsed.TotalSeconds -gt 300){throw 'Download exceeded 5 minutes. Check server network connectivity.'}
+   }
+   Write-Host ('Download complete: '+[Math]::Round($received/1MB,1)+' MB')
+   break
+  }catch{
+   Write-Host ('Download failed: '+$_.Exception.Message)
+   if($attempt -eq 2){throw};Start-Sleep -Seconds 2
+  }finally{
+   if($outputStream){$outputStream.Dispose()};if($inputStream){$inputStream.Dispose()};if($response){$response.Dispose()}
+  }
  }
  if((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -ne $Expected){throw ('SHA256 verification failed: '+$Destination)}
  Move-Item -LiteralPath $temporary -Destination $Destination -Force
 }
 Write-Host '[1/3] Downloading and verifying HTTPS connector...'
-Download-Checked 'https://github.com/cloudflare/cloudflared/releases/download/2026.10.0/cloudflared-windows-amd64.exe' (Join-Path $InstallDir 'runtime\cloudflared.exe') '86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c'
+Write-Host 'Installer version: 20261024.3 (compressed website download with progress)'
+$connector=Join-Path $InstallDir 'runtime\cloudflared.exe'
+$connectorHash='86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c'
+if(-not (Test-Path -LiteralPath $connector) -or (Get-FileHash -LiteralPath $connector -Algorithm SHA256).Hash -ne $connectorHash){
+ $archive=Join-Path $InstallDir 'downloads\cloudflared-2026.10.0-win64.zip'
+ Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/cloudflared-2026.10.0-win64.zip' $archive 'b93a5538eb3377fa712eb716de03a44a544c1976290b830434ae8fe2adec9c99'
+ Write-Host 'Unpacking and verifying official executable...'
+ $unpacked=Join-Path $InstallDir 'downloads\https-unpacked'
+ Expand-Archive -LiteralPath $archive -DestinationPath $unpacked -Force
+ $unpackedExe=Join-Path $unpacked 'cloudflared.exe'
+ if((Get-FileHash -LiteralPath $unpackedExe -Algorithm SHA256).Hash -ne $connectorHash){throw 'Connector executable SHA256 verification failed.'}
+ Move-Item -LiteralPath $unpackedExe -Destination $connector -Force
+ Copy-Item -LiteralPath (Join-Path $unpacked 'LICENSE.txt') -Destination (Join-Path $InstallDir 'runtime\cloudflared-LICENSE.txt') -Force
+}
 $bridgeHash='98f55462df41b46681c688deaf570c8521518e2495444d0f310009863ee023ab'
 Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/https-bridge.mjs' $runner $bridgeHash
 [IO.File]::WriteAllText((Join-Path $InstallDir 'https-empty.yml'),'{}',(New-Object Text.UTF8Encoding($false)))

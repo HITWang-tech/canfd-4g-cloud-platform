@@ -46,6 +46,8 @@ $f=Join-Path $env:TEMP 'CANFD4G-HTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -
 
 脚本核对 Cloudflare 官方 2026.10.0 连接程序的 SHA256，创建独立的 `CANFD4G-HTTPS` 开机任务。不会更改 TCP 接收任务、开放 19080 或占用 80/443。临时 HTTPS 中转只代理本机 19080，API 仍要求访问令牌。
 
+安装器版本 `20261024.3` 从本项目网站下载约 18.5 MB 压缩包（17.7 MiB），显示下载进度。压缩包包含未修改的官方程序及许可证，先核对压缩包 SHA256，再解压核对官方可执行文件 SHA256。连接或单次读取超过 20 秒会报错并重试一次；持续传输最长 5 分钟。若 `[1/3]` 长时间无进度，可按 Ctrl+C 后重新下载新版脚本执行，已通过校验的缓存会复用。
+
 只有在外部 HTTPS、未认证拒绝、已认证数据以及浏览器 CORS 预检均验证通过后，才显示 `HTTPS_READY`。若显示 `HTTPS_PENDING`，请查看 `C:\ProgramData\CANFD4G\logs\https-bridge.log`。需要服务器能出站访问 Cloudflare（HTTP/2 使用 TCP 7844）及隧道分配服务；脚本不会关闭防火墙或跳过 TLS 验证。
 
 - 服务器内打开 `C:\ProgramData\CANFD4G\data\Open-Live.url`，自动打开 GitHub 网页并连接。访问令牌放在 URL 片段，网页读取后立即清除，不写入浏览器持久设置。

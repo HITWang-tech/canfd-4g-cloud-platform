@@ -72,9 +72,9 @@ function Download-Checked([string]$Url,[string]$Destination,[string]$Expected){
  Move-Item -LiteralPath $temporary -Destination $Destination -Force
 }
 Write-Host '[1/4] Preparing verified certificate tools (about 2 MB)...'
-Write-Host 'IP HTTPS installer version: 20261025.2'
+Write-Host 'IP HTTPS installer version: 20261025.3'
 $package=Join-Path $InstallDir 'downloads\ip-https-tools.zip'
-Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/ip-https-tools.zip' $package 'ccba50d2508f45a5802f7701fc4b1524c3da3d101b5cd8227a724cb2a327044e'
+Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/ip-https-tools.zip' $package '1d69f8350dc234448430db10a23300907ad73afd7dc947599c09b95d2e1c0589'
 $unpacked=Join-Path $InstallDir 'downloads\ip-https-tools'
 Expand-Archive -LiteralPath $package -DestinationPath $unpacked -Force
 $moduleZip=Join-Path $unpacked 'Posh-ACME.4.35.0.zip'
@@ -107,7 +107,7 @@ Start-ScheduledTask -TaskName $renewTask
 $state=$null
 for($i=0;$i -lt 48;$i++){
  Start-Sleep -Seconds 5
- try{$candidate=Get-Content -LiteralPath $statePath -Raw|ConvertFrom-Json;if($candidate.status -eq 'error'){throw ('CERTIFICATE_REQUEST_FAILED: '+$candidate.message)};if($candidate.status -eq 'issued'){$state=$candidate;break}}catch{if($_.Exception.Message -like 'CERTIFICATE_REQUEST_FAILED:*'){throw}}
+ try{$candidate=Get-Content -LiteralPath $statePath -Raw -Encoding UTF8|ConvertFrom-Json;if($candidate.status -eq 'error'){throw ('CERTIFICATE_REQUEST_FAILED: '+$candidate.message)};if($candidate.status -eq 'issued'){$state=$candidate;break}}catch{if($_.Exception.Message -like 'CERTIFICATE_REQUEST_FAILED:*'){throw}}
  if($i%6 -eq 0){Write-Host ('Waiting for certificate validation... '+(($i+1)*5)+' seconds')}
 }
 if(-not $state){Write-Host ('CERTIFICATE_PENDING: inspect '+(Join-Path $InstallDir 'logs\ip-certificate.log'));return}

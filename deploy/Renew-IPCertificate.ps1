@@ -22,7 +22,9 @@ try{
   if($order.status -eq 'valid'){Submit-Renewal -Name $name -ErrorAction Stop | Out-Null}
   else{Submit-Renewal -Name $name -Force -ErrorAction Stop | Out-Null}
  }
- else{New-PACertificate -Domain $settings.ip -Name $name -Profile shortlived -Plugin WebSelfHost -PluginArgs @{WSHTimeout=180;WSHDelayAfterStart=2} -ValidationTimeout 120 -AcceptTOS -ErrorAction Stop | Out-Null}
+ # Posh-ACME 4.35 forwards bound parameters to New-PAAccount with its own -EA Stop.
+ # Windows PowerShell 5.1 rejects a second explicit ErrorAction; inherit Stop above.
+ else{New-PACertificate -Domain $settings.ip -Name $name -Profile shortlived -Plugin WebSelfHost -PluginArgs @{WSHTimeout=180;WSHDelayAfterStart=2} -ValidationTimeout 120 -AcceptTOS | Out-Null}
  $cert=Get-PACertificate -Name $name -ErrorAction Stop
  if(-not $cert){throw 'No completed certificate was returned.'}
  $bundle=@{cert=[IO.File]::ReadAllText($cert.FullChainFile);key=[IO.File]::ReadAllText($cert.KeyFile)}

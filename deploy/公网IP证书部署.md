@@ -48,6 +48,8 @@ $f=Join-Path $env:TEMP 'CANFD4G-IPHTTPS.ps1'; Invoke-WebRequest -UseBasicParsing
 
 若显示 `CERTIFICATE_PENDING`，先检查续期状态和申请日志；正在运行的任务不要重复启动。`CERTIFICATE_REQUEST_FAILED` 通常需按具体错误检查公网 80、ACME 出站连接、系统时间及 Windows/.NET 环境。
 
+20261025.3 修复 Windows PowerShell 5.1 首次创建账户时 `ErrorAction` 参数重复绑定：调用 `New-PACertificate` 时继承脚本的停止策略，不再显式传入会被模块再次转发的同名参数。已用官方模块函数和离线账户替身在原生 5.1 中复现旧错误并验证修复，无网络申请。安装器按 UTF-8 读取申请状态，避免中文错误乱码。
+
 ## 已验证范围
 
 本地离线准备、下载包及官方模块校验、PowerShell 5.1 语法、模块导入及 HTTP 插件检查已通过。临时测试证书用于本机代理测试，验证 IP/有效期/密钥、认证和 CORS，并确认默认信任检查拒绝自签名证书。真实生产签发、任务计划程序、SYSTEM HTTP 监听及公网连通需要在目标服务器现场验证；没有预先替用户申请证书。

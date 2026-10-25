@@ -14,7 +14,7 @@
 在服务器管理员 PowerShell 将 `YOUR_PUBLIC_IPV4` 替换为实际地址后整行执行：
 
 ```powershell
-$f=Join-Path $env:TEMP 'CANFD4G-IPHTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/Enable-IPHTTPS.ps1?v=20261025.1' -OutFile $f; if ($?) { & $f -PublicIp 'YOUR_PUBLIC_IPV4' -AcceptLetsEncryptTerms }
+$f=Join-Path $env:TEMP 'CANFD4G-IPHTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/Enable-IPHTTPS.ps1?v=20261025.2' -OutFile $f; if ($?) { & $f -PublicIp 'YOUR_PUBLIC_IPV4' -AcceptLetsEncryptTerms }
 ```
 
 安装包约 2 MB，内含未经修改的 PowerShell Gallery Posh-ACME 4.35.0 包及许可证、本项目转发与续期代码。固定 SHA256 校验通过后才解包。不会全局安装模块、修改 PowerShell 执行策略或跳过 TLS 验证。

@@ -72,7 +72,7 @@ function Download-Checked([string]$Url,[string]$Destination,[string]$Expected){
  Move-Item -LiteralPath $temporary -Destination $Destination -Force
 }
 Write-Host '[1/4] Preparing verified certificate tools (about 2 MB)...'
-Write-Host 'IP HTTPS installer version: 20261025.1'
+Write-Host 'IP HTTPS installer version: 20261025.2'
 $package=Join-Path $InstallDir 'downloads\ip-https-tools.zip'
 Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/ip-https-tools.zip' $package 'ccba50d2508f45a5802f7701fc4b1524c3da3d101b5cd8227a724cb2a327044e'
 $unpacked=Join-Path $InstallDir 'downloads\ip-https-tools'
@@ -124,8 +124,9 @@ Write-Host '[4/4] Checking trusted TLS, certificate IP, authentication and CORS 
 $verified=$false
 for($i=0;$i -lt 15;$i++){
  Start-Sleep -Seconds 2
- $check=& $node $proxy $InstallDir --probe 2>&1
- if($LASTEXITCODE -eq 0){$verified=$true;break}
+ $previousPreference=$ErrorActionPreference
+ try{$ErrorActionPreference='Continue';$check=& $node $proxy $InstallDir --probe 2>&1;$probeExit=$LASTEXITCODE}finally{$ErrorActionPreference=$previousPreference}
+ if($probeExit -eq 0){$verified=$true;break}
 }
 if(-not $verified){throw ('Direct HTTPS did not pass TLS/API checks. '+($check -join ' ')+' Check logs\direct-https.log and task '+$proxyTask)}
 $url='https://'+$PublicIp

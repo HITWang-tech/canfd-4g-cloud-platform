@@ -36,7 +36,9 @@ try{
  if($LASTEXITCODE -ne 0){throw 'Certificate IP, expiry or key validation failed.'}
  $metadata=$checked|ConvertFrom-Json
  # Same-volume replacement publishes cert and key together; the proxy retains the previous pair until this succeeds.
- if(Test-Path -LiteralPath $published){[IO.File]::Replace($temporary,$published,$null)}else{[IO.File]::Move($temporary,$published)}
+ # PS 5.1 converts $null to an empty string for this .NET string argument.
+ # NullString supplies a real null backup path, preserving atomic replacement.
+ if(Test-Path -LiteralPath $published){[IO.File]::Replace($temporary,$published,[System.Management.Automation.Language.NullString]::Value)}else{[IO.File]::Move($temporary,$published)}
  Save-State @{status='issued';time=[DateTime]::UtcNow.ToString('o');expires=$metadata.expires;fingerprint=$metadata.fingerprint}
  Add-Content -LiteralPath $log -Value (([DateTime]::UtcNow.ToString('o'))+' CERTIFICATE_READY expires '+$cert.NotAfter.ToUniversalTime().ToString('o'))
 }catch{

@@ -72,9 +72,9 @@ function Download-Checked([string]$Url,[string]$Destination,[string]$Expected){
  Move-Item -LiteralPath $temporary -Destination $Destination -Force
 }
 Write-Host '[1/4] Preparing verified certificate tools (about 2 MB)...'
-Write-Host 'IP HTTPS installer version: 20261025.3'
+Write-Host 'IP HTTPS installer version: 20261025.4'
 $package=Join-Path $InstallDir 'downloads\ip-https-tools.zip'
-Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/ip-https-tools.zip' $package '1d69f8350dc234448430db10a23300907ad73afd7dc947599c09b95d2e1c0589'
+Download-Checked 'https://hitwang-tech.github.io/canfd-4g-cloud-platform/downloads/ip-https-tools.zip' $package '3f8240726108974fa3d0818d1a67688adb5d3f363cd1fbc06e24d6a88ef4fbcf'
 $unpacked=Join-Path $InstallDir 'downloads\ip-https-tools'
 Expand-Archive -LiteralPath $package -DestinationPath $unpacked -Force
 $moduleZip=Join-Path $unpacked 'Posh-ACME.4.35.0.zip'

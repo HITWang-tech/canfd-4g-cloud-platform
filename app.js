@@ -1,6 +1,6 @@
 import {FIELDS,parseHexLog,parseASC,parsePhysical,parseDBC,prepareDataset,buildTimeline,valueAt} from './protocol.js';
 import {createDemo} from './demo.js';
-import {NetworkClock,formatBeijing} from './beijing-time.js';
+import {NetworkClock,formatBeijing} from './beijing-time.js?v=20261028-clock2';
 import {ReceiveJournal,signalStatus,pagination} from './receive-journal.js';
 import {buildLiveView,liveSignal,chooseLiveStream} from './live-view.js';
 const receptionJournal=new ReceiveJournal(1000),networkClock=new NetworkClock();
@@ -146,11 +146,13 @@ async function syncNetworkTime(){
  if(timeSyncRunning)return;timeSyncRunning=true;
  const started=performance.now();
  try{
-  const url=new URL('./index.html',import.meta.url);url.searchParams.set('time-sync',String(Date.now())+'-'+Math.random().toString(36).slice(2));
+  // GitHub Pages can cache index.html even with a new query string. A unique
+  // missing path gives a fresh HTTP response; its expected 404 is not an error.
+  const url=new URL('./__clock/'+crypto.randomUUID(),import.meta.url);
   const response=await fetch(url,{method:'HEAD',cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(8000)});
-  const ended=performance.now();if(!response.ok)throw Error('网络校时失败');
+  const ended=performance.now();if(!response.ok&&response.status!==404)throw Error('网络校时失败');
   networkClock.calibrate(response.headers.get('Date'),response.headers.get('Age'),started,ended);timeSyncFailed=false;
  }catch{timeSyncFailed=true;}finally{timeSyncRunning=false;renderNetworkTime();}
 }
-renderNetworkTime();syncNetworkTime();setInterval(renderNetworkTime,250);setInterval(syncNetworkTime,300000);
-window.addEventListener('online',syncNetworkTime);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNetworkTime();});
+renderNetworkTime();syncNetworkTime();setInterval(renderNetworkTime,250);setInterval(syncNetworkTime,60000);
+window.addEventListener('online',syncNetworkTime);window.addEventListener('pageshow',syncNetworkTime);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNetworkTime();});

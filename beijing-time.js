@@ -6,7 +6,10 @@ export class NetworkClock{
  calibrate(dateHeader,ageHeader,started,ended){
   const server=Date.parse(dateHeader),age=Number(ageHeader||0),rtt=ended-started;
   if(!Number.isFinite(server)||!Number.isFinite(age)||age<0||rtt<0||rtt>10000)throw Error('网络时间响应无效');
-  this.anchor=server+age*1000+rtt/2;this.syncedAt=ended;
+  // Only accept a fresh response. CDN Date and Age may refer to different hops;
+  // adding Age can double-count cache residence time when a proxy rewrites Date.
+  if(age>2)throw Error('校时响应已缓存，拒绝使用陈旧时间');
+  this.anchor=server+rtt/2;this.syncedAt=ended;
  }
  get synchronized(){return this.anchor!==null;}
 }

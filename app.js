@@ -2,6 +2,7 @@ import {FIELDS,parseHexLog,parseASC,parsePhysical,parseDBC,prepareDataset,buildT
 import {createDemo} from './demo.js';
 import {SIGNAL_GROUPS,CUMULATIVE_KEYS} from './signal-analysis.js';
 import {AnalysisPanel} from './analysis-ui.js';
+import {BasemapController} from './basemap.js';
 import {NetworkClock,formatBeijing} from './beijing-time.js?v=20261028-clock2';
 import {ReceiveJournal,signalStatus,pagination} from './receive-journal.js';
 import {buildLiveView,liveSignal,chooseLiveStream} from './live-view.js';
@@ -58,8 +59,10 @@ function syncScopeCharts(){
  }
  const grid=$('scope-grid');wanted.forEach((def,i)=>{const card=$(`scope-${def.key}`).closest('article');if(grid.children[i]!==card)grid.insertBefore(card,grid.children[i]||null);});
 }
-function initMap(id){if(maps.has(id))return maps.get(id);const m=L.map(id,{zoomControl:true,attributionControl:true}).setView([35.6,108.5],4);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',crossOrigin:true}).addTo(m);
- const line=L.polyline([],{color:'#278a7c',weight:3,opacity:.8}).addTo(m),trail=L.polyline([],{color:'#d3e8e1',weight:5,opacity:.8}).addTo(m);line.bringToFront();let tileErrors=0;m.on('tileerror',()=>{if(++tileErrors===3)toast('地图底图暂不可用，坐标与轨迹数据仍可查看。');});const entry={map:m,line,trail,marker:null,fitted:false,signature:''};maps.set(id,entry);return entry;}
+function initMap(id){if(maps.has(id))return maps.get(id);const m=L.map(id,{zoomControl:true,attributionControl:true}).setView([35.6,108.5],4);
+ const statusId=id==='mini-map'?'mini-basemap-status':'large-basemap-status';
+ const basemap=new BasemapController(m,L,{mode:settings.mapMode||'auto',onStatus:state=>{const label=$(statusId);label.textContent=state.text;label.classList.toggle('warning',state.warning);}});
+ const line=L.polyline([],{color:'#278a7c',weight:3,opacity:.8}).addTo(m),trail=L.polyline([],{color:'#d3e8e1',weight:5,opacity:.8}).addTo(m);line.bringToFront();const entry={map:m,line,trail,basemap,marker:null,fitted:false,signature:''};maps.set(id,entry);return entry;}
 function resetMaps(){for(const entry of maps.values()){entry.fitted=false;entry.signature='';}}
 function mapPointAt(t){const points=timeline?.events.filter(e=>e.kind==='gps'&&e.t<=t)||[];const latest=points.at(-1);return latest?.valid?latest:null;}
 function updateMap(entry,t){const points=timeline.positions,signature=`${points.length}:${points[0]?.t}:${points.at(-1)?.t}`;if(signature!==entry.signature){entry.trail.setLatLngs(points.map(p=>[p.latitude,p.longitude]));entry.signature=signature;}const past=points.filter(p=>p.t<=t);entry.line.setLatLngs(past.map(p=>[p.latitude,p.longitude]));const current=mapPointAt(t);if(current){const ll=[current.latitude,current.longitude];if(!entry.marker)entry.marker=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="vehicle-marker">▲</div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(entry.map);else entry.marker.setLatLng(ll);if(!entry.fitted){const bounds=entry.trail.getBounds();if(bounds.isValid())entry.map.fitBounds(bounds,{padding:[25,25],maxZoom:16});entry.fitted=true;}else if($('map-follow').checked)entry.map.panTo(ll,{animate:false});}else if(entry.marker){entry.marker.remove();entry.marker=null;}}
@@ -150,6 +153,9 @@ async function connectLive(){const endpoint=$('live-endpoint').value.trim().repl
  await poll();}
 function fillChartForm(){const key=$('chart-select').value,d=scopeDefs.find(x=>x.key===key),s=settings.styles[key]||{};$('chart-title').value=s.title||d.title;$('chart-min').value=s.min??'';$('chart-max').value=s.max??'';$('chart-font-size').value=s.fontSize||13;$('chart-legend').checked=s.legend!==false;}
 function wire(){
+ $('map-basemap').value=['auto','osm','hot'].includes(settings.mapMode)?settings.mapMode:'auto';
+ $('map-basemap').onchange=()=>{settings.mapMode=$('map-basemap').value;saveSettings();for(const entry of maps.values())entry.basemap.setMode(settings.mapMode);};
+ $('retry-basemap').onclick=()=>{for(const entry of maps.values())entry.basemap.retry();};
  $('signal-group').onchange=refreshSignalPicker;
  $('signal-options').onchange=e=>{const key=e.target.dataset.signalKey;if(!key)return;e.target.checked?scopeSelected.add(key):scopeSelected.delete(key);saveScopeSelection();};
  $('select-valid-signals').onclick=()=>{for(const key of availableSignals)scopeSelected.add(key);saveScopeSelection();};

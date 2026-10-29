@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FIELDS,pgn,PacketStream,encodePacket,ackPacket,decodePacket,extractRaw,signalValue,physicalEvent,parseDBC,parseASC,parsePhysical,prepareDataset,buildTimeline} from '../web/protocol.js';
+import {FIELDS,pgn,PacketStream,encodePacket,ackPacket,decodePacket,extractRaw,signalValue,physicalEvent,inspectDBC,parseDBC,parseASC,parsePhysical,prepareDataset,buildTimeline} from '../web/protocol.js';
 import {buildLiveView,chooseLiveStream} from '../web/live-view.js';
 
 const dbcSignal=(s,changes={})=>{const f={...s,...changes};return ` SG_ ${f.name} : ${f.start}|${f.size}@${f.endian}${f.signed?'-':'+'} (${f.factor},${f.offset}) [${f.minimum}|${f.maximum}] "${f.unit}" ECU`;};
@@ -114,4 +114,24 @@ test('unknown fragmented packet is buffered rather than guessing at embedded pac
  const nested=encodePacket(25,[0,0,0,1],'NESTED'),bytes=encodePacket(99,[0,0,...nested,1,2,3],'UNKNOWN');
  const stream=new PacketStream();assert.equal(stream.feed(bytes.slice(0,-3)).length,0);
  const [packet]=stream.feed(bytes.slice(-3));assert.equal(packet.type,99);assert.equal(packet.device,'UNKNOWN');
+});
+
+test('DBC inspection reports duplicate names and bounds, skips the Vector independent placeholder',()=>{
+ const text=`BO_ 123 SENSOR: 8 ECU
+ SG_ Duplicate : 0|8@1+ (1,0) [0|255] "" ECU
+ SG_ Duplicate : 8|8@1+ (1,0) [0|255] "" ECU
+ SG_ Outside : 64|8@1+ (1,0) [0|255] "" ECU
+BO_ 3221225472 VECTOR__INDEPENDENT_SIG_MSG: 0 Vector__XXX
+ SG_ Independent : 0|16@1+ (1,0) [0|100] "" ECU`;
+ const warnings=inspectDBC(text);assert.equal(warnings.length,2);
+ assert.deepEqual(warnings.map(w=>w.code),['duplicate-name','out-of-bounds']);
+ assert.deepEqual(warnings[1].signals,['Outside']);
+ assert.equal(parseDBC(dbcMessage(rpm)+'\n'+text).warnings.length,2);
+});
+
+test('DBC inspection checks Motorola sawtooth bounds and retains correctly fitting cross-byte fields',()=>{
+ const warnings=inspectDBC(`BO_ 123 SENSOR: 2 ECU
+ SG_ Fits : 3|12@0+ (1,0) [0|4095] "" ECU
+ SG_ Outside : 3|13@0+ (1,0) [0|8191] "" ECU`);
+ assert.equal(warnings.length,1);assert.deepEqual(warnings[0].signals,['Outside']);
 });

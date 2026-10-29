@@ -58,6 +58,26 @@ export function hexBytes(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?
 export function parseHexLog(input,options={}){const stream=new PacketStream(),packets=stream.feed(typeof input==='string'?hexBytes(input):new Uint8Array(input)),events=[];for(const p of packets){try{events.push(decodePacket(p,options));}catch{stream.report.malformed++;}}return {events,report:stream.finish()};}
 export function parseASC(text){const events=[];let base=16,relative=false,elapsed=0,malformed=0;for(const input of text.replace(/^\uFEFF/,'').split(/\r?\n/)){const line=input.trim();if(/^base\s/i.test(line)){base=/base\s+dec/i.test(line)?10:16;relative=/timestamps\s+relative/i.test(line);continue;}const m=line.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s+([\da-f]+x?)\s+(Rx|Tx)\s+d\s+(\d+)\s*(.*)$/i);if(!m)continue;const strictNumber=token=>(base===16?/^[\da-f]+$/i:/^\d+$/).test(token)?parseInt(token,base):NaN,dlc=Number(m[5]),parts=m[6].trim().split(/\s+/),t=relative?(elapsed+=Number(m[1])):Number(m[1]),extended=/x$/i.test(m[3]),id=strictNumber(m[3].replace(/x$/i,'')),data=parts.slice(0,dlc).map(strictNumber);if(!Number.isFinite(t)||!Number.isInteger(id)||id<0||id>(extended?0x1fffffff:0x7ff)||dlc>8||data.length!==dlc||data.some(x=>!Number.isInteger(x)||x<0||x>255)){malformed++;continue;}events.push({kind:'can',device:'ASC 导入',t,channel:+m[2],extended,id,source:extended?id&255:null,data:Uint8Array.from(data),flags:extended?1:0});}if(!events.length)throw Error('ASC 中没有有效 CAN 数据帧');return {events,report:{packets:events.length,malformed,badChecksum:0,truncated:0,discardedBytes:0}};}
 const canonicalUnit=unit=>({'deg C':'℃','°C':'℃','degC':'℃','hr':'h','r/min':'rpm','rev/min':'rpm'}[unit.trim()]??unit.trim());
+export function inspectDBC(text){
+ const warnings=[];let current=null;
+ const finish=()=>{if(!current||current.independent)return;
+  const duplicateNames=[...current.names].filter(([,n])=>n>1).map(([name])=>name);
+  if(duplicateNames.length)warnings.push({code:'duplicate-name',message:current.message,id:current.id,signals:duplicateNames});
+  if(current.outside.length)warnings.push({code:'out-of-bounds',message:current.message,id:current.id,signals:current.outside});
+ };
+ for(const line of text.replace(/^\uFEFF/,'').split(/\r?\n/)){
+  const bo=line.match(/^\s*BO_\s+(\d+)\s+(\S+)\s*:\s*(\d+)/);
+  if(bo){finish();current={message:bo[2],id:Number(bo[1])&0x1fffffff,length:+bo[3],independent:Number(bo[1])===0xc0000000&&bo[2]==='VECTOR__INDEPENDENT_SIG_MSG',names:new Map(),outside:[]};continue;}
+  const sg=line.match(/^\s*SG_\s+(\w+)\s*(?:M|m\d+M?)?\s*:\s*(\d+)\|(\d+)@([01])/);
+  if(!current||!sg||current.independent)continue;
+  current.names.set(sg[1],(current.names.get(sg[1])??0)+1);
+  const start=+sg[2],size=+sg[3],endian=+sg[4],available=current.length*8;
+  // Motorola start is the MSB in DBC sawtooth numbering; the last occupied byte is sufficient for bounds.
+  const lastByte=(start>>>3)+Math.max(0,Math.ceil((size-(start%8+1))/8));
+  if(size<1||start>=available||(endian===1?start+size>available:lastByte>=current.length))current.outside.push(sg[1]);
+ }
+ finish();return warnings;
+}
 export function parseDBC(text,fields=FIELDS){
  const out=fields.map(x=>({...x})),selected=new Map(),valueTypes=new Map();let current=null;
  for(const line of text.replace(/^\uFEFF/,'').split(/\r?\n/)){
@@ -83,7 +103,7 @@ export function parseDBC(text,fields=FIELDS){
  }
  for(const {references}of selected.values())if(references.some(ref=>(valueTypes.get(ref)??0)!==0))throw Error('目标信号使用浮点编码，当前仅支持 DBC 整数编码');
  if(!selected.size)throw Error('DBC 中没有匹配目标 PGN 和名称的信号');
- return {fields:out,count:selected.size};
+ return {fields:out,count:selected.size,warnings:inspectDBC(text)};
 }
 export function csvRows(text){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell='';}else cell+=c;}if(cell||row.length){row.push(cell);rows.push(row);}if(quoted)throw Error('CSV 引号未闭合');return rows;}
 const numeric=v=>!['number','string'].includes(typeof v)||String(v).trim()===''||!Number.isFinite(Number(v))?null:Number(v);

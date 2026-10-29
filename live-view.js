@@ -1,4 +1,5 @@
-const matches=(e,s)=>e.device===s.device&&(s.channel===''||String(e.channel)===String(s.channel))&&(s.source===''||String(e.source??'')===String(s.source));
+const sourceKey=e=>e.source===null?'standard':String(e.source??'');
+const matches=(e,s)=>e.device===s.device&&(s.channel===''||String(e.channel)===String(s.channel))&&(s.source===''||sourceKey(e)===String(s.source));
 const newer=(a,b)=>!b||(Number.isFinite(a.receivedAt)&&Number.isFinite(b.receivedAt)&&a.receivedAt!==b.receivedAt?a.receivedAt>b.receivedAt:Number.isFinite(a.cursor)&&Number.isFinite(b.cursor)&&a.cursor!==b.cursor?a.cursor>b.cursor:(a.t??0)>=(b.t??0));
 export function buildLiveView(events,selection){
  const signals=new Map();let frame=null,gps=null;
@@ -20,7 +21,7 @@ export function chooseLiveStream(events,selection){
  const weights={EngSpeed:10,ActualEngPercentTorque:8,AccelPedalPos1:6,EngFuelRate:6},groups=new Map();
  for(const e of events){
   if(!['can','physical'].includes(e.kind))continue;
-  const stream={device:e.device,channel:String(e.channel),source:String(e.source??'')},id=JSON.stringify(stream);
+  const stream={device:e.device,channel:String(e.channel),source:sourceKey(e)},id=JSON.stringify(stream);
   if(!groups.has(id))groups.set(id,{...stream,keys:new Set()});
   for(const [key,value]of Object.entries(e.values||{}))if(Number.isFinite(value))groups.get(id).keys.add(key);
  }

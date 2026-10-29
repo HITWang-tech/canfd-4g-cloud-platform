@@ -103,9 +103,9 @@ function populateSources(){
  const device=$('device-select').value,ch=$('channel-select').value,counts=new Map();
  for(const e of dataset.events)if(e.device===device&&String(e.channel)===ch&&(e.kind==='can'||e.kind==='physical'))counts.set(e.source,(counts.get(e.source)||0)+1);
  const previous=liveDesiredSelection?.source??$('source-select').value,entries=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
- $('source-select').innerHTML=entries.map(([s,n])=>`<option value="${s??''}">${s===null?'标准帧':`0x${s.toString(16).toUpperCase().padStart(2,'0')}`} · ${n} 帧</option>`).join('')||'<option value="">无源地址</option>';
- if(entries.some(([s])=>String(s??'')===previous))$('source-select').value=previous;
- else if(entries.length)$('source-select').value=String(entries[0][0]??'');
+ $('source-select').innerHTML=entries.map(([s,n])=>`<option value="${s===null?'standard':s}">${s===null?'标准帧':`0x${s.toString(16).toUpperCase().padStart(2,'0')}`} · ${n} 帧</option>`).join('')||'<option value="">无源地址</option>';
+ if(entries.some(([s])=>String(s===null?'standard':s)===previous))$('source-select').value=previous;
+ else if(entries.length)$('source-select').value=String(entries[0][0]===null?'standard':entries[0][0]);
  rebuildTimeline();
 }
 function rebuildTimeline(keepCursor=false){timeline=buildTimeline(dataset,{device:$('device-select').value,channel:$('channel-select').value,source:$('source-select').value});if(live&&liveHasData&&!isDemo){liveView=buildLiveView(dataset.events,currentSelection());cursor=liveView.cursor;scopeZoom.clear();}else if(!keepCursor){cursor=timeline.frames.find(e=>Object.values(e.values||{}).some(v=>v!==null))?.t??timeline.positions[0]?.t??timeline.start;scopeZoom.clear();}else cursor=Math.max(timeline.start,Math.min(cursor,timeline.end));resetMaps();sampleCounts=Object.fromEntries(FIELDS.map(f=>[f.key,(timeline.series[f.key]||[]).filter(p=>Number.isFinite(p[1])).length]));availableSignals=new Set(FIELDS.filter(f=>sampleCounts[f.key]>0).map(f=>f.key));refreshSignalPicker();analysisPanel.changed(JSON.stringify([filename,isDemo,currentSelection()]));if(!preserveTablePageOnUpdate)tablePage=0;renderQuality();renderTable();renderFrame();}

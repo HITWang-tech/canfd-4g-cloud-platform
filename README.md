@@ -102,3 +102,5 @@ HTTPS API：`GET /api/snapshot?after=<cursor>`，请求头 `Authorization: Beare
 - 升级时将已有 `data/records.ndjson` 原地重命名为带唯一标识的 `records-legacy-…ndjson`，保留内容与修改时间；这类旧归档同样按修改时间保留至少 30 天。不会把整个旧日志读入内存。
 - 日志使用流式写入，遇到磁盘写入积压时暂停 TCP 读取、缓冲排空后继续；日志读写异常在 API 与网页实时状态中提示。服务关闭时刷新日志。
 - Windows 配置可设置 `cacheRetentionSeconds`、`cacheCleanupSeconds`、`cacheMaxRecords`、`logRetentionDays`；旧配置缺少这些字段时采用上述默认值。修改后需重启接收服务。TCP 端口继续使用现有配置 58023。
+
+安装更新先核验配置中的 HTTP/TCP 监听者，再停止已核实的本项目任务；兼容命令行路径中的正反斜杠和大小写。停止后等待端口释放，退出中的进程不误判为其他程序；只终止路径与脚本参数完全匹配的接收进程。停止阶段失败时尝试恢复原接收任务，无法核实的程序不会被终止。

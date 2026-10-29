@@ -22,7 +22,9 @@ if(-not $PrepareOnly){
  if(-not (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Open PowerShell as Administrator, then run this script again.'}
 }
 $configuredTcpPort=$TcpPort
-if(Test-Path -LiteralPath (Join-Path $InstallDir 'config.json')){$configuredTcpPort=[int](Get-Content -LiteralPath (Join-Path $InstallDir 'config.json') -Raw|ConvertFrom-Json).tcpPort}
+$configuredHttpPort=19080
+if(Test-Path -LiteralPath (Join-Path $InstallDir 'config.json')){$savedConfig=Get-Content -LiteralPath (Join-Path $InstallDir 'config.json') -Raw|ConvertFrom-Json;$configuredTcpPort=[int]$savedConfig.tcpPort;$configuredHttpPort=[int]$savedConfig.httpPort}
+if($configuredTcpPort -lt 1 -or $configuredTcpPort -gt 65535 -or $configuredHttpPort -lt 1 -or $configuredHttpPort -gt 65535 -or $configuredTcpPort -eq $configuredHttpPort){throw 'The configured TCP and HTTP ports must be valid and different.'}
 $marker=Join-Path $InstallDir '.canfd4g-owner'
 if((Test-Path -LiteralPath $InstallDir) -and (Get-ChildItem -LiteralPath $InstallDir -Force | Select-Object -First 1) -and -not (Test-Path -LiteralPath $marker)){throw 'Installation directory is not owned by this project. Select a new empty directory.'}
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -46,19 +48,54 @@ if($PayloadFile){
  if((Get-FileHash -LiteralPath $PayloadFile -Algorithm SHA256).Hash -ne $payloadHash){throw 'Local test payload hash mismatch.'}
  Copy-Item -LiteralPath $PayloadFile -Destination $payload -Force
 }else{Download-Checked ($site+'/downloads/windows-receiver.zip') $payload $payloadHash}
+function Normalize-ReceiverPath([string]$Value){
+ if([string]::IsNullOrWhiteSpace($Value)){return ''}
+ try{return [IO.Path]::GetFullPath($Value.Replace('/','\').Trim('"')).TrimEnd('\')}catch{return ''}
+}
+function Test-OwnedReceiverProcess($ProcessInfo,[string]$NodePath,[string]$CollectorPath){
+ if(-not $ProcessInfo -or -not $ProcessInfo.ExecutablePath -or -not $ProcessInfo.CommandLine){return $false}
+ if((Normalize-ReceiverPath $ProcessInfo.ExecutablePath) -ne (Normalize-ReceiverPath $NodePath)){return $false}
+ $arguments=@([regex]::Matches([string]$ProcessInfo.CommandLine,'"([^"]*)"|([^\s"]+)')|ForEach-Object{if($_.Groups[1].Success){$_.Groups[1].Value}else{$_.Groups[2].Value}})
+ # The managed runner invokes node with the collector as its first argument.
+ return $arguments.Count -ge 2 -and [IO.Path]::IsPathRooted($arguments[1]) -and (Normalize-ReceiverPath $arguments[1]) -eq (Normalize-ReceiverPath $CollectorPath)
+}
+function Stop-ReceiverForUpdate([string]$NodePath,[string]$CollectorPath,[int[]]$Ports,[string]$ReceiverTask,$ExistingTask){
+ # Check every listener before stopping the task. A disappearing listener is not another application.
+ for($attempt=0;$attempt -lt 6;$attempt++){
+  $uncertain=$null
+  foreach($listener in @(Get-NetTCPConnection -LocalPort $Ports -State Listen -ErrorAction SilentlyContinue)){
+   $owner=Get-CimInstance Win32_Process -Filter ('ProcessId='+$listener.OwningProcess) -ErrorAction SilentlyContinue
+   if(-not $owner -or -not $owner.ExecutablePath -or -not $owner.CommandLine){$uncertain=$listener;continue}
+   if(-not(Test-OwnedReceiverProcess $owner $NodePath $CollectorPath)){throw ('Port '+$listener.LocalPort+' belongs to an unverified process (PID '+$listener.OwningProcess+'). Nothing was stopped. Keep the port configuration and inspect the process locally.')}
+  }
+  if(-not $uncertain){break}
+  if($attempt -eq 5){throw ('Cannot verify the listener on port '+$uncertain.LocalPort+' (PID '+$uncertain.OwningProcess+'). Nothing was stopped; process details may be unavailable or the process may be exiting.')}
+  Start-Sleep -Milliseconds 200
+ }
+ $taskStopped=$false
+ try{
+  if($ExistingTask){Stop-ScheduledTask -TaskName $ReceiverTask -ErrorAction Stop;$taskStopped=$true}
+  for($attempt=0;$attempt -lt 75;$attempt++){
+   $listeners=@(Get-NetTCPConnection -LocalPort $Ports -State Listen -ErrorAction SilentlyContinue)
+   if(-not $listeners.Count){return}
+   foreach($listener in $listeners){
+    $owner=Get-CimInstance Win32_Process -Filter ('ProcessId='+$listener.OwningProcess) -ErrorAction SilentlyContinue
+    if(-not $owner -or -not $owner.ExecutablePath -or -not $owner.CommandLine){continue}
+    if(-not(Test-OwnedReceiverProcess $owner $NodePath $CollectorPath)){throw ('Port '+$listener.LocalPort+' changed to an unverified process. That process was not stopped.')}
+    try{Stop-Process -Id $listener.OwningProcess -ErrorAction Stop}catch{if(Get-CimInstance Win32_Process -Filter ('ProcessId='+$listener.OwningProcess) -ErrorAction SilentlyContinue){throw}}
+   }
+   Start-Sleep -Milliseconds 200
+  }
+  throw 'The owned receiver did not release its ports within 15 seconds.'
+ }catch{
+  if($taskStopped){try{Start-ScheduledTask -TaskName $ReceiverTask -ErrorAction Stop;Write-Host 'Previous receiver task restarted after the update stop-check failed.'}catch{Write-Host 'Could not restart the receiver task; inspect it locally.'}}
+  throw
+ }
+}
 if(-not $PrepareOnly){
  $existingTask=Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
- if($existingTask){
-  if($existingTask.Actions.Arguments -notlike ('*'+(Join-Path $InstallDir 'Run-Receiver.ps1')+'*')){throw 'An unrelated scheduled task already uses this name.'}
-  Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
- }
- foreach($port in @(19080,$configuredTcpPort)){
-  foreach($listener in @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)){
-   $owner=Get-CimInstance Win32_Process -Filter ('ProcessId='+$listener.OwningProcess)
-   if($owner.ExecutablePath -eq $node -and $owner.CommandLine -like ('*'+(Join-Path $InstallDir 'app\server\collector.mjs')+'*')){Stop-Process -Id $listener.OwningProcess}
-   else{throw ('Port '+$port+' is already used by another program (PID '+$listener.OwningProcess+'). No changes were made to that program.')}
-  }
- }
+ if($existingTask -and -not(@($existingTask.Actions)|Where-Object{([string]$_.Arguments).IndexOf((Join-Path $InstallDir 'Run-Receiver.ps1'),[StringComparison]::OrdinalIgnoreCase) -ge 0})){throw 'An unrelated scheduled task already uses this name.'}
+ Stop-ReceiverForUpdate -NodePath $node -CollectorPath (Join-Path $InstallDir 'app\server\collector.mjs') -Ports @($configuredHttpPort,$configuredTcpPort) -ReceiverTask $taskName -ExistingTask $existingTask
 }
 Expand-Archive -LiteralPath $payload -DestinationPath (Join-Path $InstallDir 'app') -Force
 Write-Host '[2/5] Preparing configuration...'

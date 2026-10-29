@@ -19,16 +19,16 @@ Invoke-WebRequest -UseBasicParsing 'https://hitwang-tech.github.io/canfd-4g-clou
 - 下载官方 Node.js 22.23.4 和接收程序，核对固定 SHA256。
 - 创建独立的访问令牌，保存到安装目录的 config.json。
 - 创建以 Local Service 运行的 `CANFD4G-Receiver` 开机任务。
-- 只为本应用添加 Windows 防火墙 TCP 19090 规则。
+- 只为本应用添加 Windows 防火墙 TCP 58023 规则。
 - 验证回环地址的数据接口。数据接口 19080 不直接对公网监听。
 
 成功时显示 `RECEIVER_OK`；HTTPS 阶段尚未完成时会明确显示 `HTTPS_API: NOT_CONFIGURED_YET`。这时不能把 GitHub 网页描述为已经接到实时数据。
 
 ## 阿里云安全组
 
-在实例所用安全组中添加入方向 TCP 19090 规则。此项与 Windows 防火墙不同，脚本不会操作阿里云账号或安全组。
+在实例所用安全组中添加入方向 TCP 58023 规则。此项与 Windows 防火墙不同，脚本不会操作阿里云账号或安全组。
 
-在外网确认 TCP 接收程序和协议应答后，才能把 `公网IP:19090` 交给记录仪操作人员。对方使用 TCP 客户端及 V1.1 二进制帧，不是 HTTP、ASC 文本或 ASCII HEX。
+在外网确认 TCP 接收程序和协议应答后，才能把 `公网IP:58023` 交给记录仪操作人员。对方使用 TCP 客户端及 V1.1 二进制帧，不是 HTTP、ASC 文本或 ASCII HEX。
 
 ## HTTPS 数据接口
 
@@ -55,7 +55,7 @@ $f=Join-Path $env:TEMP 'CANFD4G-HTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -
 - 这两个文件包含访问令牌，请勿上传仓库、发送聊天或截取内容。日志和 `HTTPS_URL` 不包含令牌。
 - 临时地址随 HTTPS 进程重启变化。重新运行脚本后使用新生成的连接文件。此方式用于联调，无固定地址或可用性保证。后续固定部署需配置域名与固定隧道或受信任证书。
 
-`HTTPS_READY` 仅说明网页接口可用；真实设备需继续连接 `公网IP:19090`。网页统计无设备、无有效帧时，不代表已有实车数据。
+`HTTPS_READY` 仅说明网页接口可用；真实设备需继续连接 `公网IP:58023`。网页统计无设备、无有效帧时，不代表已有实车数据。
 
 访问令牌位于服务器的 config.json，仅填写进网页访问令牌输入框，不要提交到仓库或包含在截图中。
 
@@ -71,3 +71,16 @@ $f=Join-Path $env:TEMP 'CANFD4G-HTTPS.ps1'; Invoke-WebRequest -UseBasicParsing -
 ## 发布前验证范围
 
 部署脚本经过 PowerShell 5.1 语法检查、`-PrepareOnly` 下载/哈希/解包检查，接收代码以目标 Node.js 22 运行协议测试。真实服务器的 Local Service 任务、权限、防火墙、安全组和 HTTPS 仍需现场执行并验证。预备模式不注册任务或修改防火墙。
+
+
+## 已安装服务器切换 TCP 上传端口
+
+新安装默认 TCP 58023。已有配置会保留，不能用重复安装代替端口迁移。使用发布的 `Set-TCPPort.ps1 -Port 58023 -PublicIp <服务器公网IP>`：
+
+- 核对安装标记、任务归属和端口占用，拒绝停止其他应用。
+- 为目标端口创建或启用 Windows 防火墙规则，保留 HTTPS/API 配置和访问令牌。
+- 原子更新配置，重启接收任务，验证本机目标端口及认证 API；失败时尝试恢复旧配置并重新启动。
+- 重启会暂时中断设备连接，内存计数归零；数据目录中的记录文件保留。
+- 脚本不操作阿里云账号。还须在安全组放行 TCP 58023，并将记录仪 TCP 客户端目标端口改为 58023。网页 HTTPS 地址不填写 TCP 上传端口。
+
+`-CheckOnly` 仅核对配置及端口参数，不改配置、不改任务、不改防火墙。原生 PowerShell 5.1 已测试预检、API 端口冲突拒绝、配置更新和原子回滚；实际防火墙、任务启动和外网接入仍需目标服务器执行验证。

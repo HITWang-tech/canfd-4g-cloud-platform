@@ -49,7 +49,7 @@
 实时仪表使用当前设备、CAN 通道及 ECU 的最新接收值，与 GPS 时间和回放游标分离；曲线游标随所选 CAN 的最新报文推进。超过信号时效时保留上次值并明确标记已过期，新报文中的无效值仍显示为空。初次实时接入自动寻找包含目标信号的来源，用户手动选择后保持其选择。CAN 0 和 ECU 地址 0 均为有效选项。
 
 - “数据与报文 → 接收日志”按每次网页轮询批次汇总新增字节、有效帧、校验/格式异常、有效目标信号和 GPS 有效性。首次拉取的已有记录标为历史，不计作本次新发送；收到不完整 TCP 帧时标为待观察，避免误判为无效数据。
-- 日志覆盖所有设备与通道，保留当前页面最近 1000 条，支持导出 CSV。刷新会清空页面日志；Windows 接收端配置的原始记录仍写入服务器 `data/records.ndjson`，两者不同。
+- 日志覆盖所有设备与通道，保留当前页面最近 1000 条，支持导出 CSV。刷新会清空页面日志；Windows 接收端原始记录按北京时间每天写入 `data/records-YYYY-MM-DD.ndjson`；它与网页会话日志不同。
 - “CAN 原始报文 → 信号解析”逐帧区分有效目标信号、目标信号全部无效、无匹配目标信号、远程请求和错误帧。有效数值 0 保留为有效。
 - 表格支持首页、末页、页码跳转和每页 20/40/100/200 条。实时刷新保留选定页码；勾选“跟随最新（实时）”时自动进入末页，手动翻页后取消跟随。
 
@@ -80,13 +80,25 @@ npm start
 | RECORDER_ALLOWED_ORIGINS | 允许访问 API 的网页 Origin，逗号分隔 |
 | RECORDER_DEVICES | 允许的设备 SN，逗号分隔；空值不筛选 |
 | RECORDER_LOG_DIR | 可选 NDJSON 日志目录，不设时仅保留内存记录 |
+| RECORDER_CACHE_RETENTION_SECONDS | 内存记录保留秒数，默认 3600，以服务器接收时间判断 |
+| RECORDER_CACHE_CLEANUP_SECONDS | 缓存清理间隔，默认 60 秒；查询快照时也清理 |
+| RECORDER_CACHE_MAX_RECORDS | 缓存条数上限，默认 50000 |
+| RECORDER_LOG_RETENTION_DAYS | 原始日志保留天数，默认 30 |
 
 生产部署需 HTTPS 反向代理、TCP 端口与设备 SN 配置。该采集代码只实现文档明确的 CAN、定位、心跳接收与应答，不实现未定义的注册/鉴权流程，也不向车辆下发控制报文。
 
-HTTPS API：`GET /api/snapshot?after=<cursor>`，请求头 `Authorization: Bearer <token>`。响应包含 `records`、`cursor`、`report`、`devices`，CAN payload 用字节数组传输。服务最多保留 50000 条内存记录；长期存储应配置日志或数据库。
+HTTPS API：`GET /api/snapshot?after=<cursor>`，请求头 `Authorization: Bearer <token>`。响应包含 `records`、`cursor`、`report`、`devices`，CAN payload 用字节数组传输。服务保留最近 1 小时内最多 50000 条内存记录；每分钟清理过期缓存，不断开 TCP、不重置游标或接收统计。响应的 `cache` 和 `storage` 提供当前缓存数量、保留策略、清理计数及存储错误状态。
 
 ## 第三方组件
 
 - Apache ECharts 5.6.0，Apache-2.0： https://github.com/apache/echarts
 - Leaflet 1.9.4，BSD-2-Clause： https://github.com/Leaflet/Leaflet
 - OpenStreetMap 底图及数据版权： https://www.openstreetmap.org/copyright
+
+### 缓存与原始日志定期清理
+
+- 缓存按服务器 `receivedAt` 判断过期，不使用可能来自历史回放的设备时间。每分钟及快照查询时清理，清理过程保留设备连接、游标和累计接收计数。浏览器已经载入的回放数据与服务器缓存各自保存。
+- 原始记录按北京时间每天归档；服务启动时及每小时检查一次，完整日文件中最新可能记录也超过 30 天且文件修改时间超过 30 天才删除，保证至少保留 30 天，最多额外保留约一天。只删除本程序命名的原始日志文件，不递归清目录，不删除令牌、连接配置、证书或安装文件。
+- 升级时将已有 `data/records.ndjson` 原地重命名为带唯一标识的 `records-legacy-…ndjson`，保留内容与修改时间；这类旧归档同样按修改时间保留至少 30 天。不会把整个旧日志读入内存。
+- 日志使用流式写入，遇到磁盘写入积压时暂停 TCP 读取、缓冲排空后继续；日志读写异常在 API 与网页实时状态中提示。服务关闭时刷新日志。
+- Windows 配置可设置 `cacheRetentionSeconds`、`cacheCleanupSeconds`、`cacheMaxRecords`、`logRetentionDays`；旧配置缺少这些字段时采用上述默认值。修改后需重启接收服务。TCP 端口继续使用现有配置 58023。

@@ -11,7 +11,7 @@ $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 $taskName='CANFD4G-Receiver'
-$payloadHash='59bf6fa79ba844259a922b6237b282b1fcc1a9f94aa90b0d49039c467706bb9b'
+$payloadHash='c15f655f8035d13bf79d25a9ae65ba02b260e00102c8203c6db83383473392fc'
 $nodeHash='dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f'
 $nodeUrl='https://nodejs.org/dist/v22.23.4/win-x64/node.exe'
 $site='https://hitwang-tech.github.io/canfd-4g-cloud-platform'
@@ -65,7 +65,7 @@ Write-Host '[2/5] Preparing configuration...'
 $configPath=Join-Path $InstallDir 'config.json'
 if(-not (Test-Path -LiteralPath $configPath)){
  $bytes=New-Object byte[] 24;$rng=[Security.Cryptography.RandomNumberGenerator]::Create();$rng.GetBytes($bytes);$rng.Dispose()
- $config=[ordered]@{token=[Convert]::ToBase64String($bytes);httpPort=19080;tcpPort=$TcpPort;origins='https://hitwang-tech.github.io';devices=''}
+ $config=[ordered]@{token=[Convert]::ToBase64String($bytes);httpPort=19080;tcpPort=$TcpPort;cacheRetentionSeconds=3600;cacheCleanupSeconds=60;cacheMaxRecords=50000;logRetentionDays=30;origins='https://hitwang-tech.github.io';devices=''}
  [IO.File]::WriteAllText($configPath,($config | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
 }
 $config=Get-Content -LiteralPath $configPath -Raw -Encoding UTF8|ConvertFrom-Json
@@ -81,6 +81,10 @@ $env:RECORDER_API_TOKEN=$config.token
 $env:RECORDER_ALLOWED_ORIGINS=$config.origins
 $env:RECORDER_DEVICES=$config.devices
 $env:RECORDER_LOG_DIR=Join-Path $root 'data'
+$env:RECORDER_CACHE_RETENTION_SECONDS=[string]$config.cacheRetentionSeconds
+$env:RECORDER_CACHE_CLEANUP_SECONDS=[string]$config.cacheCleanupSeconds
+$env:RECORDER_CACHE_MAX_RECORDS=[string]$config.cacheMaxRecords
+$env:RECORDER_LOG_RETENTION_DAYS=[string]$config.logRetentionDays
 & (Join-Path $root 'runtime\node.exe') (Join-Path $root 'app\server\collector.mjs') *> (Join-Path $root 'logs\receiver.log')
 exit $LASTEXITCODE
 '@
@@ -124,6 +128,8 @@ Write-Host ('TCP_ENDPOINT: '+$(if($PublicIp){$PublicIp}else{'<PUBLIC_IPV4>'})+':
 Write-Host ('ACTIVE_CONNECTIONS: '+$health.report.activeConnections)
 Write-Host ('RECEIVED_BYTES: '+$health.report.receivedBytes)
 Write-Host ('VALID_FRAMES: '+$health.report.packets)
-Write-Host 'HTTPS_API: NOT_CONFIGURED_YET'
-Write-Host ('Next: allow inbound TCP '+$config.tcpPort+' in the Alibaba Cloud security group, then configure HTTPS API.')
+Write-Host 'HTTPS_API: EXISTING_CONFIGURATION_UNCHANGED'
+Write-Host ('Keep inbound TCP '+$config.tcpPort+' allowed in the Alibaba Cloud security group. Existing HTTPS configuration is preserved.')
+if($health.cache){Write-Host ('CACHE_RETENTION_SECONDS: '+$health.cache.retentionSeconds);Write-Host ('CACHE_CLEANUP_SECONDS: '+$health.cache.cleanupIntervalSeconds);Write-Host ('CACHE_MAX_RECORDS: '+$health.cache.maxRecords)}
+if($health.storage){Write-Host ('LOG_RETENTION_DAYS: '+$health.storage.retentionDays)}
 Write-Host ('Access token is stored in '+$configPath+'; do not include it in screenshots.')

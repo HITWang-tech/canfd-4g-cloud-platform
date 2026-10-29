@@ -3,6 +3,7 @@
 param(
  [string]$InstallDir=(Join-Path $env:ProgramData 'CANFD4G'),
  [string]$PublicIp='',
+ [ValidateRange(1024,65535)][int]$TcpPort=58023,
  [string]$PayloadFile='',
  [switch]$PrepareOnly
 )
@@ -20,6 +21,8 @@ if(-not $PrepareOnly){
  $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
  if(-not (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Open PowerShell as Administrator, then run this script again.'}
 }
+$configuredTcpPort=$TcpPort
+if(Test-Path -LiteralPath (Join-Path $InstallDir 'config.json')){$configuredTcpPort=[int](Get-Content -LiteralPath (Join-Path $InstallDir 'config.json') -Raw|ConvertFrom-Json).tcpPort}
 $marker=Join-Path $InstallDir '.canfd4g-owner'
 if((Test-Path -LiteralPath $InstallDir) -and (Get-ChildItem -LiteralPath $InstallDir -Force | Select-Object -First 1) -and -not (Test-Path -LiteralPath $marker)){throw 'Installation directory is not owned by this project. Select a new empty directory.'}
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -49,7 +52,7 @@ if(-not $PrepareOnly){
   if($existingTask.Actions.Arguments -notlike ('*'+(Join-Path $InstallDir 'Run-Receiver.ps1')+'*')){throw 'An unrelated scheduled task already uses this name.'}
   Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
  }
- foreach($port in @(19080,19090)){
+ foreach($port in @(19080,$configuredTcpPort)){
   foreach($listener in @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)){
    $owner=Get-CimInstance Win32_Process -Filter ('ProcessId='+$listener.OwningProcess)
    if($owner.ExecutablePath -eq $node -and $owner.CommandLine -like ('*'+(Join-Path $InstallDir 'app\server\collector.mjs')+'*')){Stop-Process -Id $listener.OwningProcess}
@@ -62,9 +65,10 @@ Write-Host '[2/5] Preparing configuration...'
 $configPath=Join-Path $InstallDir 'config.json'
 if(-not (Test-Path -LiteralPath $configPath)){
  $bytes=New-Object byte[] 24;$rng=[Security.Cryptography.RandomNumberGenerator]::Create();$rng.GetBytes($bytes);$rng.Dispose()
- $config=[ordered]@{token=[Convert]::ToBase64String($bytes);httpPort=19080;tcpPort=19090;origins='https://hitwang-tech.github.io';devices=''}
+ $config=[ordered]@{token=[Convert]::ToBase64String($bytes);httpPort=19080;tcpPort=$TcpPort;origins='https://hitwang-tech.github.io';devices=''}
  [IO.File]::WriteAllText($configPath,($config | ConvertTo-Json),(New-Object Text.UTF8Encoding($false)))
 }
+$config=Get-Content -LiteralPath $configPath -Raw -Encoding UTF8|ConvertFrom-Json
 $run=@'
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -105,8 +109,8 @@ $trigger=New-ScheduledTaskTrigger -AtStartup
 $principal=New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited
 $settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-$ruleName='CANFD4G-TCP-19090'
-if(-not (Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue)){New-NetFirewallRule -Name $ruleName -DisplayName 'CANFD 4G recorder TCP 19090' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 19090 -Profile Any | Out-Null}
+$ruleName='CANFD4G-TCP-'+$config.tcpPort
+if(-not (Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue)){New-NetFirewallRule -Name $ruleName -DisplayName ('CANFD 4G recorder TCP '+$config.tcpPort) -Direction Inbound -Action Allow -Protocol TCP -LocalPort $config.tcpPort -Profile Any | Out-Null}
 Start-ScheduledTask -TaskName $taskName
 Write-Host '[5/5] Checking local receiver API...'
 $config=Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
@@ -116,10 +120,10 @@ for($i=0;$i -lt 20;$i++){
 }
 if(-not $health){throw ('Receiver did not start. Check '+(Join-Path $InstallDir 'logs\receiver.log'))}
 Write-Host 'RECEIVER_OK'
-Write-Host ('TCP_ENDPOINT: '+$(if($PublicIp){$PublicIp}else{'<PUBLIC_IPV4>'})+':19090')
+Write-Host ('TCP_ENDPOINT: '+$(if($PublicIp){$PublicIp}else{'<PUBLIC_IPV4>'})+':'+$config.tcpPort)
 Write-Host ('ACTIVE_CONNECTIONS: '+$health.report.activeConnections)
 Write-Host ('RECEIVED_BYTES: '+$health.report.receivedBytes)
 Write-Host ('VALID_FRAMES: '+$health.report.packets)
 Write-Host 'HTTPS_API: NOT_CONFIGURED_YET'
-Write-Host 'Next: allow inbound TCP 19090 in the Alibaba Cloud security group, then configure HTTPS API.'
+Write-Host ('Next: allow inbound TCP '+$config.tcpPort+' in the Alibaba Cloud security group, then configure HTTPS API.')
 Write-Host ('Access token is stored in '+$configPath+'; do not include it in screenshots.')

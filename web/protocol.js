@@ -48,11 +48,11 @@ export function ackPacket(packet,result=0,now=Math.floor(Date.now()/1000)){
 }
 export function extractRaw(data,s){let v=0n;if(s.endian===1){if(s.start+s.size>data.length*8)throw Error('载荷不足');for(let i=data.length-1;i>=0;i--)v=(v<<8n)|BigInt(data[i]);return (v>>BigInt(s.start))&((1n<<BigInt(s.size))-1n);}
  let bit=s.start;for(let n=0;n<s.size;n++){if(bit<0||bit>=data.length*8)throw Error('载荷不足');v=(v<<1n)|BigInt((data[bit>>>3]>>>(bit%8))&1);bit=bit%8===0?bit+15:bit-1;}return v;}
-export function signalValue(data,s){try{let raw=extractRaw(data,s);if(s.size>=8&&s.extended&&!s.signed){const high=Number(raw>>BigInt(s.size-8));if(high>=254)return null;}if(s.signed&&(raw&(1n<<BigInt(s.size-1))))raw-=1n<<BigInt(s.size);const v=Number(raw)*s.factor+s.offset;if(!Number.isFinite(v))return null;
+export function signalValue(data,s){try{let raw=extractRaw(data,s);if(s.invalidRawValues?.includes(Number(raw)))return null;if(s.size>=8&&s.extended&&!s.signed){const high=Number(raw>>BigInt(s.size-8));if(high>=254)return null;}if(s.signed&&(raw&(1n<<BigInt(s.size-1))))raw-=1n<<BigInt(s.size);const v=Number(raw)*s.factor+s.offset;if(!Number.isFinite(v))return null;
  if(s.maximum>s.minimum&&(v<s.minimum-1e-7||v>s.maximum+1e-7))return null;
  return s.key==='EngFuelTemp1'&&Math.abs(v+40)<1e-7?null:v;
  }catch{return null;}}
-export function physicalEvent(frame,fields=FIELDS){const values={};if(!frame.error&&!frame.remote)for(const s of fields){if((s.channel!==undefined&&Number(frame.channel)!==Number(s.channel))||!Number.isInteger(s.start)||frame.extended!==s.extended||(frame.extended?pgn(frame.id)!==s.pgn:frame.id!==s.id))continue;values[s.key]=signalValue(frame.data,s);}
+export function physicalEvent(frame,fields=FIELDS){const values={};if(!frame.error&&!frame.remote)for(const s of fields){if((s.channel!==undefined&&Number(frame.channel)!==Number(s.channel))||!Number.isInteger(s.start)||frame.extended!==s.extended||(frame.extended?pgn(frame.id)!==s.pgn:frame.id!==s.id))continue;values[s.key]=s.payloadLength!==undefined&&frame.data.length!==s.payloadLength?null:signalValue(frame.data,s);}
  return {...frame,values};}
 export function hexBytes(text){const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/),bytes=[];for(const line of lines){const s=line.trim();if(/^(?:[\da-f]{2}\s+){6,}[\da-f]{2}$/i.test(s))bytes.push(...s.split(/\s+/).map(x=>parseInt(x,16)));}if(!bytes.length)throw Error('未识别到连续十六进制报文行');return Uint8Array.from(bytes);}
 export function parseHexLog(input,options={}){const stream=new PacketStream(),packets=stream.feed(typeof input==='string'?hexBytes(input):new Uint8Array(input)),events=[];for(const p of packets){try{events.push(decodePacket(p,options));}catch{stream.report.malformed++;}}return {events,report:stream.finish()};}
@@ -90,16 +90,17 @@ export function parseDBC(text,fields=FIELDS){
   // The same name occurs in ET1, ET3 and diagnostic freeze frames. Match the target PGN too.
   const existing=out.find(s=>Number.isInteger(s.start)&&(s.key===sg[1]||s.name===sg[1])&&s.extended===current.extended&&(s.extended?s.pgn===pgn(current.id):s.id===current.id));
   if(!existing)continue;
+  if(existing.dbcMatch&&(+sg[3]!==existing.dbcMatch.start||+sg[4]!==existing.dbcMatch.size||+sg[5]!==existing.dbcMatch.endian))continue;
   if(sg[2])throw Error(`目标信号 ${sg[1]} 含多路复用，需要单独配置`);
   const layout={start:+sg[3],size:+sg[4],endian:+sg[5],signed:sg[6]==='-',factor:+sg[7],offset:+sg[8],minimum:+sg[9],maximum:+sg[10]};
   if(!Number.isInteger(current.length)||current.length<1||current.length>64||layout.size<1||layout.size>64||![layout.factor,layout.offset,layout.minimum,layout.maximum].every(Number.isFinite)||layout.factor===0||layout.minimum>layout.maximum)throw Error(`目标信号 ${sg[1]} 定义无效`);
   try{extractRaw(new Uint8Array(current.length),layout);}catch{throw Error(`目标信号 ${sg[1]} 超出报文载荷`);}
-  if(canonicalUnit(sg[11])!==canonicalUnit(existing.unit))throw Error(`目标信号 ${sg[1]} 单位与平台不一致：${sg[11]}`);
+  if(canonicalUnit(sg[11])!==canonicalUnit(existing.dbcUnit??existing.unit))throw Error(`目标信号 ${sg[1]} 单位与平台不一致：${sg[11]}`);
   const previous=selected.get(existing.key);
   if(previous&&JSON.stringify(previous.layout)!==JSON.stringify(layout))throw Error(`目标信号 ${sg[1]} 在同一 PGN 下存在冲突定义`);
   const references=previous?.references??[];references.push(`${current.dbcId}:${sg[1]}`);
   selected.set(existing.key,{layout,references});
-  Object.assign(existing,{id:current.id,extended:current.extended,message:current.message,pgn:pgn(current.id)},layout);
+  Object.assign(existing,{id:current.id,extended:current.extended,message:current.message,pgn:pgn(current.id)},layout,existing.payloadLength!==undefined?{payloadLength:current.length}:{});
  }
  for(const {references}of selected.values())if(references.some(ref=>(valueTypes.get(ref)??0)!==0))throw Error('目标信号使用浮点编码，当前仅支持 DBC 整数编码');
  if(!selected.size)throw Error('DBC 中没有匹配目标 PGN 和名称的信号');

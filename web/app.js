@@ -4,7 +4,7 @@ import {ForcePanel} from './force-panel.js';
 import {MonitorPanel} from './monitor-panel.js';
 import {MonitoringContext} from './monitor-context.js';
 import {MONITOR_GROUPS,MONITOR_CHART_DEFS} from './monitor-spec.js';
-import {ForwardingAudit} from './forwarding-audit.js';
+import {ForwardingAudit} from './forwarding-audit.js?v=20261030-all-signals';
 import {parseStoredLog} from './stored-log.js';
 const SIGNAL_GROUPS=[...BASE_SIGNAL_GROUPS,...MONITOR_GROUPS];
 import {createDemo} from './demo.js?v=20261030-monitor1';

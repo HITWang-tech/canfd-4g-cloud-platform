@@ -5,7 +5,7 @@ import {physicalEvent,prepareDataset,buildTimeline,parseDBC} from '../web/protoc
 import {NOX_KEYS,scrEfficiency,regenSummary,volumeDosing,observedPeriod} from '../web/monitor-data.js';
 import {MonitoringContext} from '../web/monitor-context.js';
 import {buildLiveView} from '../web/live-view.js';
-import {forwardingPlan,candidatePlan} from '../web/forwarding-audit.js';
+import {forwardingPlan,candidatePlan,auditRows} from '../web/forwarding-audit.js';
 import {parseStoredLog} from '../web/stored-log.js';
 
 const sample=(value,source=0,t=100)=>({value,source,t,state:'fresh',device:'A',channel:2});
@@ -68,8 +68,26 @@ test('PTO source binding routes only PTO and stays scoped to one device',()=>{
  state.ptoBinding.device='B';assert.equal(context.get().sample('PowerTakeoffSpeed').value,600);
 });
 
-test('DBC candidate rules are separate from observed evidence and include only defined CAN2 fields',()=>{
- const plan=candidatePlan(PLATFORM_FIELDS);assert.ok(plan.length>10);assert.ok(plan.every(p=>p.channel===2));assert.ok(plan.some(p=>p.pgn===61444));assert.ok(!plan.some(p=>p.pgn===0x301));
+test('DBC candidate rules cover all direct signals on CAN1 and CAN2, excluding computed values',()=>{
+ const plan=candidatePlan(PLATFORM_FIELDS),labels=plan.flatMap(p=>p.signals);assert.ok(plan.some(p=>p.channel===2&&p.pgn===61444));
+ for(const f of PLATFORM_FIELDS.filter(f=>Number.isInteger(f.start)))assert.ok(labels.includes(f.label),f.key);
+ const force=plan.find(p=>p.channel===1);assert.equal(force.id,'0x00000301');assert.equal(force.mask,'0x000007FF');assert.equal(force.pgn,null);assert.equal(force.extended,false);
+ assert.ok(!labels.includes(PLATFORM_FIELDS.find(f=>f.key==='IntegratedFuel_L').label));
+});
+
+test('audit covers all 49 platform fields plus unsupported references and identifies computed fuel',()=>{
+ const dataset=prepareDataset({events:[raw(0x18fef200,[0,0,0,0,0,0,0,0])],report:{}},PLATFORM_FIELDS),ctx={device:'A',fields:PLATFORM_FIELDS};
+ const rows=auditRows(dataset,ctx);assert.equal(rows.length,53);
+ for(const f of PLATFORM_FIELDS)assert.equal(rows.filter(row=>row[0]===f.label).length,1,f.key);
+ const fuel=rows.find(row=>row[0]===PLATFORM_FIELDS.find(f=>f.key==='IntegratedFuel_L').label);assert.ok(fuel[3].includes('无独立 CAN ID'));assert.ok(fuel[5].includes('积分计算量'));assert.ok(!fuel[5].includes('可解码'));
+ assert.ok(rows.find(row=>row[0]==='传感器力（IN1）')[3].includes('0x301'));
+});
+
+test('observed forwarding suggestions include legacy engine signals and force without adding absent PGNs',()=>{
+ const field=PLATFORM_FIELDS.find(f=>f.key==='BarometricPress'),force={...raw(0x301,[9,196,0,0,0,0,0,0],1),extended:false,source:null};
+ const dataset=prepareDataset({events:[raw(field.id,Array(8).fill(0)),force],report:{}},PLATFORM_FIELDS),plan=forwardingPlan(dataset,{device:'A',fields:PLATFORM_FIELDS});
+ assert.ok(plan.some(p=>p.signals.includes(field.label)));assert.ok(plan.some(p=>p.channel===1&&p.id==='0x00000301'));
+ assert.ok(!plan.some(p=>p.pgn===61444));
 });
 
 test('raw log type and DLC contradictions are rejected and short target frames do not decode',()=>{

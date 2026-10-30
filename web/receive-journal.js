@@ -1,4 +1,4 @@
-import {physicalEvent} from './protocol.js';
+import {physicalEvent} from './protocol.js?v=20261030-force1';
 export function signalStatus(frame,fields){
  if(frame.error)return {kind:'warning',label:'CAN 错误帧',keys:[],matched:0};
  if(frame.remote)return {kind:'info',label:'远程请求帧',keys:[],matched:0};

@@ -1,0 +1,16 @@
+[
+  {
+    "file": "emission-rates.png",
+    "originalFigure": "02_emissions.png",
+    "sourceSystem": "发动机及后处理仿真数据分析系统",
+    "dataType": "existing simulation analysis output",
+    "sha256": "9740467ea3eb6ee0bc1c6c9204cf20c3e5a8265ae145cb7487864ee44f048801"
+  },
+  {
+    "file": "correlation-heatmap.png",
+    "originalFigure": "06_correlation_heatmap.png",
+    "sourceSystem": "发动机及后处理仿真数据分析系统",
+    "dataType": "existing simulation analysis output",
+    "sha256": "bfa00739d81a70b5ce84a0ef2246e35c8a5654500b0706bf44b6c91fd31920a5"
+  }
+]

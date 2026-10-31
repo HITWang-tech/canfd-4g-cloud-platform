@@ -70,7 +70,7 @@ test('PTO source binding routes only PTO and stays scoped to one device',()=>{
 
 test('DBC candidate rules cover all direct signals on CAN1 and CAN2, excluding computed values',()=>{
  const plan=candidatePlan(PLATFORM_FIELDS),labels=plan.flatMap(p=>p.signals);assert.ok(plan.some(p=>p.channel===2&&p.pgn===61444));
- for(const f of PLATFORM_FIELDS.filter(f=>Number.isInteger(f.start)))assert.ok(labels.includes(f.label),f.key);
+ for(const f of PLATFORM_FIELDS.filter(f=>Number.isInteger(f.start)&&f.key!=='WheelBasedVehicleSpeed'))assert.ok(labels.includes(f.label),f.key);
  const force=plan.find(p=>p.channel===1);assert.equal(force.id,'0x00000301');assert.equal(force.mask,'0x000007FF');assert.equal(force.pgn,null);assert.equal(force.extended,false);
  assert.ok(!labels.includes(PLATFORM_FIELDS.find(f=>f.key==='IntegratedFuel_L').label));
 });

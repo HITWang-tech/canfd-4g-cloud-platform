@@ -10,7 +10,7 @@ import {MONITOR_GROUPS,MONITOR_CHART_DEFS} from './monitor-spec.js';
 import {ForwardingAudit} from './forwarding-audit.js?v=20261031-real-demo1';
 import {parseStoredLog} from './stored-log.js';
 const SIGNAL_GROUPS=[...BASE_SIGNAL_GROUPS,...MONITOR_GROUPS];
-import {createDemo,DEMO_NAME} from './demo.js?v=20261031-demo0647';
+import {createDemo,DEMO_NAME} from './demo.js?v=20261031-gpsstart';
 import {SIGNAL_GROUPS as BASE_SIGNAL_GROUPS,CUMULATIVE_KEYS} from './signal-analysis.js';
 import {AnalysisPanel} from './analysis-ui.js?v=20261031-real-demo1';
 import {BasemapController} from './basemap.js';

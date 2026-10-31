@@ -4,7 +4,7 @@ import {parseDBC} from './protocol.js?v=20261030-monitor1';
 
 export const CHANNEL_PROFILES={1:{name:'传感器力',baudKbit:500},2:{name:'整车 J1939',baudKbit:250}};
 export const FORCE_KEYS=['IN1_Force_kN'];
-export const FORCE_FIELDS=[{key:'IN1_Force_kN',name:'IN1_Force_kN',label:'传感器力（IN1）',unit:'kN',channel:1,extended:false,payloadLength:8,id:0x301,message:'Zhongsheng_ADC_IN1_0x301',start:7,size:16,endian:0,signed:false,factor:.01,offset:0,minimum:0,maximum:50,note:'由提供的 DBC 定义：D0–D1 大端，原始值 × 0.01 kN'}];
+export const FORCE_FIELDS=[{key:'IN1_Force_kN',name:'IN1_Force_kN',label:'传感器力（IN1）',unit:'kN',channel:1,extended:false,payloadLength:8,id:0x301,message:'Zhongsheng_ADC_IN1_0x301',start:7,size:16,endian:0,signed:false,factor:.002,offset:0,minimum:0,maximum:50,note:'由提供的 DBC 定义：D0–D1 大端，原始值 × 0.002 kN'}];
 export const PLATFORM_FIELDS=[...ENGINE_FIELDS.map(f=>({...f,channel:2,payloadLength:8})),...MONITOR_FIELDS.map(f=>({...f,payloadLength:8})),...FORCE_FIELDS];
 export const fieldsForChannel=(fields,channel)=>fields.filter(f=>Number(f.channel)===Number(channel));
 export function parseForceDBC(text,fields=PLATFORM_FIELDS){
@@ -20,6 +20,6 @@ export function parseForceDBC(text,fields=PLATFORM_FIELDS){
  }
  if(!candidates.size)throw Error('未找到 IN1_Force_kN，请提供对应力信号定义');
  const templates=fields.filter(f=>f.channel===1).map(f=>candidates.has(f.key)?{...f,id:candidates.get(f.key),start:0,pendingDefinition:false}:f);
- const result=parseDBC(text,templates);
+ const result=parseDBC(text,templates);for(const field of result.fields)field.note=`DBC 换算：原始值 × ${field.factor} ${field.unit}，偏移 ${field.offset}`;
  return {...result,fields:fields.map(f=>f.channel===1?result.fields.find(s=>s.key===f.key)??f:f)};
 }

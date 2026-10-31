@@ -8,7 +8,7 @@ test('tracks break at missing time, invalid coordinates and device boundaries; p
  assert.deepEqual(trackSegments(rows).map(s=>s.length),[2,1,1,1]);assert.deepEqual(trackSegments(rows,{until:1}).map(s=>s.length),[2]);
  const speeds=vehicleTimeline({events:[gps(0),gps(171)],series:{}}).series.WheelBasedVehicleSpeed;assert.deepEqual(speeds,[[0,4],[3,null],[171,4]]);
 });
-test('authorized GPS excerpt retains all valid points and its five actual track sections',()=>{
- const gpsRows=createDemo().events.filter(e=>e.kind==='gps');const segments=trackSegments(gpsRows);assert.deepEqual(segments.map(s=>s.length),[20,19,123,14,143]);assert.equal(segments.flat().length,319);
+test('authorized GPS excerpt retains all valid points and its retained final track section',()=>{
+ const gpsRows=createDemo().events.filter(e=>e.kind==='gps');const segments=trackSegments(gpsRows);assert.deepEqual(segments.map(s=>s.length),[143]);assert.equal(segments.flat().length,143);
  assert.ok(gpsRows.every(e=>e.device==='实车演示'&&!Object.hasOwn(e,'altitude')&&!Object.hasOwn(e,'receivedAt')));
 });

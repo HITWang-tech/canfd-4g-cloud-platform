@@ -5,7 +5,7 @@ export class ForcePanel{
  constructor(id,{context,format,onEdit}){
   this.id=id;this.context=context;this.format=format;this.chart=null;this.selection=null;this.zoom=null;this.legendSelected={};
   const host=document.getElementById(id);
-  host.innerHTML=`<div class="force-metrics">${FORCE_KEYS.map((key,i)=>`<article><span>传感器力 · IN1</span><strong data-force-value="${key}">—</strong><small data-force-status="${key}">待接收</small></article>`).join('')}</div><article class="card"><div class="card-head"><div><h3 data-force-title>传感器力时域曲线</h3><p>CAN1 · 500 kbit/s · 同一坐标系比较，单位 kN</p></div><div class="inline"><button type="button" class="button subtle" data-force-edit>图窗设置</button><button type="button" class="button subtle" data-force-export disabled>导出图片</button></div></div><div class="force-chart" role="img" aria-label="传感器力时域曲线"></div><p class="hint" data-force-note></p></article>`;
+  host.innerHTML=`<div class="force-metrics">${FORCE_KEYS.map((key,i)=>`<article><span>传感器力 · IN1</span><strong data-force-value="${key}">—</strong><small data-force-status="${key}">待接收</small></article>`).join('')}</div><article class="card"><div class="card-head"><div><h3 data-force-title>传感器力时域曲线</h3></div><div class="inline"><button type="button" class="button subtle" data-force-edit>图窗设置</button><button type="button" class="button subtle" data-force-export disabled>导出图片</button></div></div><div class="force-chart" role="img" aria-label="传感器力时域曲线"></div><p hidden data-force-note></p></article>`;
   host.querySelector('[data-force-edit]').onclick=onEdit;
   host.querySelector('[data-force-export]').onclick=()=>this.export();
  }

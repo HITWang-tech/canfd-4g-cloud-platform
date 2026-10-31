@@ -127,3 +127,7 @@ HTTPS API：`GET /api/snapshot?after=<cursor>`，请求头 `Authorization: Beare
 - Windows 配置可设置 `cacheRetentionSeconds`、`cacheCleanupSeconds`、`cacheMaxRecords`、`logRetentionDays`；旧配置缺少这些字段时采用上述默认值。修改后需重启接收服务。TCP 端口继续使用现有配置 58023。
 
 安装更新先核验配置中的 HTTP/TCP 监听者，再停止已核实的本项目任务；兼容命令行路径中的正反斜杠和大小写。停止后等待端口释放，退出中的进程不误判为其他程序；只终止路径与脚本参数完全匹配的接收进程。停止阶段失败时尝试恢复原接收任务，无法核实的程序不会被终止。
+
+## 验收界面
+
+界面移除重复介绍、操作教程与算法长段说明，保留参数、单位、数据有效性、连接状态及简短来源标识。信号核对表继续保留解析依据；原图与采集、计算逻辑保持不变。

@@ -1,5 +1,5 @@
 import {parseHexLog,parseASC,parsePhysical,parseDBC,prepareDataset,buildTimeline,valueAt} from './protocol.js?v=20261031-gpsspeed1';
-import {PLATFORM_FIELDS as FIELDS,FORCE_KEYS,CHANNEL_PROFILES,fieldsForChannel,parseForceDBC} from './channel-profiles.js?v=20261030-monitor1';
+import {PLATFORM_FIELDS as FIELDS,FORCE_KEYS,CHANNEL_PROFILES,fieldsForChannel,parseForceDBC} from './channel-profiles.js?v=20261031-force10';
 import {ForcePanel} from './force-panel.js?v=20261031-acceptance1';
 import {MonitorPanel} from './monitor-panel.js?v=20261031-acceptance1';
 import {ReportGallery} from './report-gallery.js?v=20261031-acceptance1';
@@ -8,7 +8,7 @@ import {MONITOR_GROUPS,MONITOR_CHART_DEFS} from './monitor-spec.js';
 import {ForwardingAudit} from './forwarding-audit.js?v=20261031-gpsspeed1';
 import {parseStoredLog} from './stored-log.js';
 const SIGNAL_GROUPS=[...BASE_SIGNAL_GROUPS,...MONITOR_GROUPS];
-import {createDemo} from './demo.js?v=20261030-monitor1';
+import {createDemo} from './demo.js?v=20261031-force10';
 import {SIGNAL_GROUPS as BASE_SIGNAL_GROUPS,CUMULATIVE_KEYS} from './signal-analysis.js';
 import {AnalysisPanel} from './analysis-ui.js?v=20261031-acceptance1';
 import {BasemapController} from './basemap.js';

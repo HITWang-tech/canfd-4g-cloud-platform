@@ -1,11 +1,14 @@
+import {VEHICLE_SPEED_KEY,gpsVehicleSpeed} from './vehicle-speed.js';
 import {DOCUMENT_SIGNALS} from './monitor-spec.js';
 const hex=(value,size=8)=>'0x'+value.toString(16).toUpperCase().padStart(size,'0');
 export function signalEvidence(dataset,{device,fields}){
  const evidence=new Map(fields.map(f=>[f.key,{matched:0,valid:0,invalid:0,ids:new Set(),sources:new Set()}]));
  for(const event of dataset.events){
-  if(event.kind!=='can'||event.device!==device)continue;
+  if(event.device!==device)continue;
+  if(event.kind==='gps'){const entry=evidence.get(VEHICLE_SPEED_KEY);if(entry){entry.matched++;if(gpsVehicleSpeed(event)!==null)entry.valid++;else entry.invalid++;}continue;}
+  if(event.kind!=='can')continue;
   for(const [key,value]of Object.entries(event.values||{})){
-   const entry=evidence.get(key);if(!entry)continue;entry.matched++;
+   const entry=evidence.get(key);if(!entry||key===VEHICLE_SPEED_KEY)continue;entry.matched++;
    if(Number.isFinite(value)){entry.valid++;entry.ids.add(event.id);entry.sources.add(event.source);}else entry.invalid++;
   }
  }
@@ -16,7 +19,7 @@ export function forwardingPlan(dataset,{device,fields,demo=false}){
  const evidence=signalEvidence(dataset,{device,fields});
  const groups=new Map();
  for(const f of fields){
-  const e=evidence.get(f.key);if(!e?.valid||!Number.isInteger(f.start)||f.pendingDefinition)continue;
+  const e=evidence.get(f.key);if(f.key===VEHICLE_SPEED_KEY||!e?.valid||!Number.isInteger(f.start)||f.pendingDefinition)continue;
   const groupId=`${f.channel}:${f.extended?f.pgn:f.id}`;
   if(!groups.has(groupId))groups.set(groupId,{channel:f.channel,extended:f.extended,pgn:f.extended?f.pgn:null,id:f.extended?f.pgn<<8:f.id,mask:f.extended?(((f.pgn>>>8)&255)<240?0x03ff0000:0x03ffff00):0x7ff,ids:new Set(),signals:[],samples:0});
   const group=groups.get(groupId);for(const id of e.ids)group.ids.add(id);group.signals.push(f.label);group.samples+=e.valid;
@@ -26,7 +29,7 @@ export function forwardingPlan(dataset,{device,fields,demo=false}){
 export function candidatePlan(fields){
  const groups=new Map();
  for(const f of fields){
-  if(!Number.isInteger(f.start)||f.pendingDefinition)continue;
+  if(f.key===VEHICLE_SPEED_KEY||!Number.isInteger(f.start)||f.pendingDefinition)continue;
   const key=`${f.channel}:${f.extended?f.pgn:f.id}`;
   if(!groups.has(key))groups.set(key,{channel:f.channel,extended:f.extended,pgn:f.extended?f.pgn:null,id:hex(f.extended?f.pgn<<8:f.id),mask:hex(f.extended?(((f.pgn>>>8)&255)<240?0x03ff0000:0x03ffff00):0x7ff),signals:[]});
   groups.get(key).signals.push(f.label);
@@ -40,6 +43,7 @@ export function auditRows(dataset,ctx){
   const reference=DOCUMENT_SIGNALS.find(item=>item.key===f.key),e=evidence.get(f.key),computed=f.key==='IntegratedFuel_L',fuel=evidence.get('EngFuelRate');
   const status=ctx.demo?'合成演示，不作实测依据':computed?(fuel?.valid?`积分计算量；已有 ${fuel.valid} 个有效燃油率输入样本`:'积分计算量；等待有效燃油率输入'):e?.valid?`${e.valid} 个可解码样本`:e?.matched?'报文存在，样本均无效':'当前记录未见有效输入';
   const definition=computed?'平台计算（无独立 CAN ID）':f.extended?`${f.message} / PGN ${f.pgn} (${hex(f.pgn,4)})`:`${f.message} / 标准帧 ${hex(f.id,3)}`;
+  if(f.key===VEHICLE_SPEED_KEY)return [f.label,'GPS',f.unit,'GPS 定位速度','—',ctx.demo?'合成演示，不作实测依据':e?.valid?`${e.valid} 个有效样本`:e?.matched?'定位速度无效':'当前记录未见定位速度','GPS 速度 / km/h'];
   return [f.label,`CAN${f.channel}`,f.unit,definition,reference?`${reference.docPgn} / ${reference.docSpn}`:'—',status,[f.note,reference?.note].filter(Boolean).join('；')];
  });
  for(const item of DOCUMENT_SIGNALS.filter(item=>!item.key))rows.push([item.label,'CAN2','—','—',`${item.docPgn} / ${item.docSpn}`,item.excluded?'不纳入监控':'当前 DBC 未定义',item.note]);

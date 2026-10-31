@@ -41,9 +41,9 @@ export function auditRows(dataset,ctx){
  const evidence=signalEvidence(dataset,ctx);
  const rows=ctx.fields.map(f=>{
   const reference=DOCUMENT_SIGNALS.find(item=>item.key===f.key),e=evidence.get(f.key),computed=f.key==='IntegratedFuel_L',fuel=evidence.get('EngFuelRate');
-  const status=ctx.demo?'合成演示，不作实测依据':computed?(fuel?.valid?`积分计算量；已有 ${fuel.valid} 个有效燃油率输入样本`:'积分计算量；等待有效燃油率输入'):e?.valid?`${e.valid} 个可解码样本`:e?.matched?'报文存在，样本均无效':'当前记录未见有效输入';
+  const status=ctx.demo?'实车演示回放':computed?(fuel?.valid?`积分计算量；已有 ${fuel.valid} 个有效燃油率输入样本`:'积分计算量；等待有效燃油率输入'):e?.valid?`${e.valid} 个可解码样本`:e?.matched?'报文存在，样本均无效':'当前记录未见有效输入';
   const definition=computed?'平台计算（无独立 CAN ID）':f.extended?`${f.message} / PGN ${f.pgn} (${hex(f.pgn,4)})`:`${f.message} / 标准帧 ${hex(f.id,3)}`;
-  if(f.key===VEHICLE_SPEED_KEY)return [f.label,'GPS',f.unit,'GPS 定位速度','—',ctx.demo?'合成演示，不作实测依据':e?.valid?`${e.valid} 个有效样本`:e?.matched?'定位速度无效':'当前记录未见定位速度','GPS 速度 / km/h'];
+  if(f.key===VEHICLE_SPEED_KEY)return [f.label,'GPS',f.unit,'GPS 定位速度','—',ctx.demo?'实车演示回放':e?.valid?`${e.valid} 个有效样本`:e?.matched?'定位速度无效':'当前记录未见定位速度','GPS 速度 / km/h'];
   return [f.label,`CAN${f.channel}`,f.unit,definition,reference?`${reference.docPgn} / ${reference.docSpn}`:'—',status,[f.note,reference?.note].filter(Boolean).join('；')];
  });
  for(const item of DOCUMENT_SIGNALS.filter(item=>!item.key))rows.push([item.label,'CAN2','—','—',`${item.docPgn} / ${item.docSpn}`,item.excluded?'不纳入监控':'当前 DBC 未定义',item.note]);
@@ -59,6 +59,6 @@ export class ForwardingAudit{
   host.querySelector('[data-export-candidates]').onclick=()=>{const rows=[['CAN通道','帧类型','PGN','筛选ID','掩码_1参与匹配','信号','验证状态'],...candidatePlan(this.context().fields).map(p=>[p.channel,p.extended?'扩展帧':'标准帧',p.pgn??'',p.id,p.mask,p.signals.join(';'),'由DBC定义，待现场验证；保留原有规则'])];this.download('CAN待验证筛选清单.csv','\uFEFF'+rows.map(row=>row.map(this.csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');};
  }
  rows(){const ctx=this.context();return ctx?.dataset?auditRows(ctx.dataset,ctx):[];}
- render(){const ctx=this.context();if(!ctx?.dataset)return;const plan=forwardingPlan(ctx.dataset,ctx),host=document.getElementById(this.id);host.querySelector('[data-forward-body]').innerHTML=this.rows().map(row=>'<tr>'+row.map(cell=>`<td>${esc(cell)}</td>`).join('')+'</tr>').join('');host.querySelector('[data-export-forward]').disabled=!plan.length;host.querySelector('[data-forward-summary]').textContent=ctx.demo?'合成演示 · 筛选建议未启用':`设备 ${ctx.device} · 可增补 ${plan.length} 项`;}
+ render(){const ctx=this.context();if(!ctx?.dataset)return;const plan=forwardingPlan(ctx.dataset,ctx),host=document.getElementById(this.id);host.querySelector('[data-forward-body]').innerHTML=this.rows().map(row=>'<tr>'+row.map(cell=>`<td>${esc(cell)}</td>`).join('')+'</tr>').join('');host.querySelector('[data-export-forward]').disabled=!plan.length;host.querySelector('[data-forward-summary]').textContent=ctx.demo?'演示回放 · 筛选建议未启用':`设备 ${ctx.device} · 可增补 ${plan.length} 项`;}
  export(planOnly){const ctx=this.context();let rows;if(planOnly){const plan=forwardingPlan(ctx.dataset,ctx);if(!plan.length)return;rows=[['CAN通道','帧类型','PGN','建议筛选ID','掩码_1参与匹配','实测CAN_ID','信号','可解码样本数'],...plan.map(p=>[p.channel,p.extended?'扩展帧':'标准帧',p.pgn??'',p.id,p.mask,p.observedIds.join(';'),p.signals.join(';'),p.samples])];}else rows=[AUDIT_HEADERS,...this.rows()];this.download(planOnly?'CAN转发筛选建议.csv':'信号核对表.csv','\uFEFF'+rows.map(row=>row.map(this.csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
 }

@@ -1,5 +1,5 @@
-import {gpsRecording} from './demo-gps.js?v=20261031-gps-demo1';
-import {recording} from './demo-recording.js?v=20261031-real-demo1';
+import {gpsRecording} from './demo-gps.js?v=20261031-demo0647';
+import {recording} from './demo-recording.js?v=20261031-demo0647';
 export const DEMO_NAME='实车测试演示 · 2026-10-31';
 export const DEMO_METADATA={...recording.metadata,gpsAvailable:true,gps:gpsRecording.metadata,description:'实车 CAN 与 GPS 按原始设备时间合并，未插值、未移时；GPS 已获授权公开。'};
 export function createDemo(){

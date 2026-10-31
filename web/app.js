@@ -1,3 +1,4 @@
+import {trackSegments} from './gps-track.js?v=20261031-gps-demo1';
 import {parseHexLog,parseASC,parsePhysical,parseDBC,prepareDataset,buildTimeline,valueAt} from './protocol.js?v=20261031-gpsspeed1';
 import {PLATFORM_FIELDS as FIELDS,FORCE_KEYS,CHANNEL_PROFILES,fieldsForChannel,parseForceDBC} from './channel-profiles.js?v=20261031-force10';
 import {ForcePanel} from './force-panel.js?v=20261031-real-demo1';
@@ -8,7 +9,7 @@ import {MONITOR_GROUPS,MONITOR_CHART_DEFS} from './monitor-spec.js';
 import {ForwardingAudit} from './forwarding-audit.js?v=20261031-real-demo1';
 import {parseStoredLog} from './stored-log.js';
 const SIGNAL_GROUPS=[...BASE_SIGNAL_GROUPS,...MONITOR_GROUPS];
-import {createDemo,DEMO_NAME} from './demo.js?v=20261031-real-demo1';
+import {createDemo,DEMO_NAME} from './demo.js?v=20261031-gps-demo1';
 import {SIGNAL_GROUPS as BASE_SIGNAL_GROUPS,CUMULATIVE_KEYS} from './signal-analysis.js';
 import {AnalysisPanel} from './analysis-ui.js?v=20261031-real-demo1';
 import {BasemapController} from './basemap.js';
@@ -17,7 +18,7 @@ let mapSession=0;
 import {NetworkClock,formatBeijing} from './beijing-time.js?v=20261028-clock2';
 import {ReceiveJournal,signalStatus,pagination} from './receive-journal.js?v=20261030-monitor1';
 import {buildLiveView,liveSignal,chooseLiveStream} from './live-view.js';
-import {vehicleTimeline,vehicleLiveView,vehicleCSVRows} from './vehicle-speed.js';
+import {vehicleTimeline,vehicleLiveView,vehicleCSVRows} from './vehicle-speed.js?v=20261031-gps-demo1';
 const receptionJournal=new ReceiveJournal(1000),networkClock=new NetworkClock();
 let preserveTablePageOnUpdate=false,tablePerPage=40,lastTableMax=0,liveView=null,autoLiveSelection=true,liveDesiredSelection=null;
 import {validateConnection,parseConnectionFragment} from './live-config.js';
@@ -94,8 +95,8 @@ function resetMaps(){const selection=JSON.stringify([mapSession,filename,isDemo,
 function mapPointAt(t){const points=timeline?.events.filter(e=>e.kind==='gps'&&e.t<=t)||[];const latest=points.at(-1);return latest?.valid?latest:null;}
 function updateMap(entry,t){
  const points=timeline.positions,signature=`${points.length}:${points[0]?.t}:${points.at(-1)?.t}`,changed=signature!==entry.signature;
- if(changed){entry.trail.setLatLngs(points.map(p=>[p.latitude,p.longitude]));entry.signature=signature;}
- const past=points.filter(p=>p.t<=t);entry.line.setLatLngs(past.map(p=>[p.latitude,p.longitude]));const current=mapPointAt(t);let ll=null;
+ if(changed){entry.trail.setLatLngs(trackSegments(timeline.events));entry.signature=signature;}
+ entry.line.setLatLngs(trackSegments(timeline.events,{until:t}));const current=mapPointAt(t);let ll=null;
  if(current){
   ll=[current.latitude,current.longitude];if(!entry.marker)entry.marker=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="vehicle-marker">▲</div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(entry.map);else entry.marker.setLatLng(ll);
   const arrow=entry.marker.getElement()?.querySelector('.vehicle-marker');if(arrow){const heading=Number.isFinite(current.heading)&&current.heading>=0&&current.heading<=360;arrow.textContent=heading?'▲':'●';arrow.style.transform=heading?`rotate(${current.heading}deg)`:'none';}

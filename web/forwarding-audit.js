@@ -1,4 +1,4 @@
-import {VEHICLE_SPEED_KEY,gpsVehicleSpeed} from './vehicle-speed.js';
+import {VEHICLE_SPEED_KEY,gpsVehicleSpeed} from './vehicle-speed.js?v=20261031-gps-demo1';
 import {DOCUMENT_SIGNALS} from './monitor-spec.js';
 const hex=(value,size=8)=>'0x'+value.toString(16).toUpperCase().padStart(size,'0');
 export function signalEvidence(dataset,{device,fields}){

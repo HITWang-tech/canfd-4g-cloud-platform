@@ -4,7 +4,8 @@ export function gpsVehicleSpeed(event){
  return event?.valid===true&&Number.isFinite(event.latitude)&&Math.abs(event.latitude)<=90&&Number.isFinite(event.longitude)&&Math.abs(event.longitude)<=180&&Number.isFinite(event.speed)&&event.speed>=0?event.speed:null;
 }
 export function vehicleTimeline(timeline){
- const points=timeline.events.filter(e=>e.kind==='gps').map(e=>[e.t,gpsVehicleSpeed(e)]);
+ const points=[];let previous=null;
+ for(const e of timeline.events){if(e.kind!=='gps')continue;if(previous&&e.t-previous.t>3)points.push([previous.t+3,null]);points.push([e.t,gpsVehicleSpeed(e)]);previous=e;}
  return {...timeline,series:{...timeline.series,[VEHICLE_SPEED_KEY]:points},vehicleSpeedSource:'GPS'};
 }
 export function vehicleLiveView(view){

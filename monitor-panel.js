@@ -31,7 +31,7 @@ export class MonitorPanel{
    host.querySelector(`[data-label="${key}"]`).textContent=field.label;
    const card=host.querySelector(`[data-monitor-value="${key}"]`).closest('article');card.classList.toggle('data-stale',sample.state==='stale');
    host.querySelector(`[data-monitor-value="${key}"]`).textContent=`${this.format(value,1)} ${field.unit}`;
-   host.querySelector(`[data-monitor-state="${key}"]`).textContent=sample.state==='stale'?'上次值，已过期':sample.state==='invalid'?'报文信号无效':!Number.isFinite(value)?'尚无有效样本':ctx.demo?'合成演示数据':ctx.live?'实时接入':'记录回放';
+   host.querySelector(`[data-monitor-state="${key}"]`).textContent=sample.state==='stale'?'上次值，已过期':sample.state==='invalid'?'报文信号无效':!Number.isFinite(value)?'尚无有效样本':ctx.demo?'实车演示数据':ctx.live?'实时接入':'记录回放';
    if(this.kind==='power'){
     if(!this.gauges.has(key))this.gauges.set(key,echarts.init(host.querySelector(`[data-monitor-gauge="${key}"]`)));
     this.gauges.get(key).setOption({animation:false,textStyle:{fontFamily:font},series:[{type:'gauge',startAngle:210,endAngle:-30,min:field.minimum,max:field.maximum,center:['50%','58%'],radius:'95%',pointer:{show:Number.isFinite(value)},axisLine:{lineStyle:{width:7,color:[[1,'#e5edf0']]}},progress:{show:Number.isFinite(value),width:7,itemStyle:{color:'#2f718f'}},axisTick:{show:false},splitLine:{length:7,distance:4},splitNumber:4,axisLabel:{distance:12,fontSize:10,fontFamily:font,formatter:v=>String(Math.round(v))},detail:{show:false},title:{show:false},data:[{value:Number.isFinite(value)?value:field.minimum}]}]},true);

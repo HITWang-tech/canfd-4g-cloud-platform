@@ -26,6 +26,6 @@ export class MonitoringContext{
    if(s.live){const status=liveSignal(view,key,s.now,s.ttl),event=view?.signals.get(key)?.event;return {...status,t:event?.t,device:event?.device,channel:event?.channel,source:event?.source};}
    return {...pointAt(series(key),cursor,s.ttl),device:s.selection.device,channel:Number(s.selection.channel),source:source==='standard'?null:Number(source)};
   };
-  return {timeline:s.timeline,fields:s.fields,channel:s.selection.channel,cursor,series,sample,ttl:s.ttl,styles:s.styles,demo:s.demo,live:s.live,selection:JSON.stringify([s.filename,s.selection,binding,ptoBinding]),confirmedNoxPair:!!binding.confirmed,ureaDensity:Number.isFinite(s.ureaDensity)&&s.ureaDensity>0?s.ureaDensity:null,ptoSourceLabel:sourceLabel(sources.pto),sourceLabel:`${s.demo?'合成演示 · ':''}${s.selection.device} · CAN${s.selection.channel} · ECU ${sourceLabel(s.selection.source)}；NOx 入口 ${sourceLabel(sources.inlet)} / 出口 ${sourceLabel(sources.outlet)}`};
+  return {timeline:s.timeline,fields:s.fields,channel:s.selection.channel,cursor,series,sample,ttl:s.ttl,styles:s.styles,demo:s.demo,live:s.live,selection:JSON.stringify([s.filename,s.selection,binding,ptoBinding]),confirmedNoxPair:!!binding.confirmed,ureaDensity:Number.isFinite(s.ureaDensity)&&s.ureaDensity>0?s.ureaDensity:null,ptoSourceLabel:sourceLabel(sources.pto),sourceLabel:`${s.demo?'实车演示 · ':''}${s.selection.device} · CAN${s.selection.channel} · ECU ${sourceLabel(s.selection.source)}；NOx 入口 ${sourceLabel(sources.inlet)} / 出口 ${sourceLabel(sources.outlet)}`};
  }
 }

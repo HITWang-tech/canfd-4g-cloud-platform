@@ -44,12 +44,12 @@ export class AnalysisPanel{
    this.chart('workpoint-heatmap').setOption({...common,grid:{left:85,right:100,top:30,bottom:75},tooltip:{position:'top',formatter:p=>`转速区间中心：${this.format(heat.xCenters[p.data[0]],1)} rpm<br>扭矩区间中心：${this.format(heat.yCenters[p.data[1]],1)} %<br>停留时间：${this.format(p.data[3],2)} s<br>有效时间占比：${this.format(p.data[2],2)} %`},xAxis:{type:'category',data:heat.xCenters.map(v=>this.format(v,0)),name:'发动机转速 / rpm',nameLocation:'middle',nameGap:42,axisLabel:{interval:Math.max(0,Math.floor(heat.xCenters.length/8)),rotate:20}},yAxis:{type:'category',data:heat.yCenters.map(v=>this.format(v,1)),name:'实际扭矩百分比 / %',nameLocation:'middle',nameGap:60,axisLabel:{interval:Math.max(0,Math.floor(heat.yCenters.length/8))}},visualMap:{min:0,max:maximum||1,dimension:2,calculable:true,orient:'vertical',right:8,top:'center',text:['占比 / %',''],precision:2,inRange:{color:['#eef5f6','#a9d4d0','#438f95','#1c4e6b']}},series:[{type:'heatmap',data:heat.points,label:{show:false},emphasis:{itemStyle:{borderColor:'#173343',borderWidth:1}}}]},true);
    document.getElementById('workpoint-heatmap-meta').textContent=`有效运行时间 ${this.format(heat.totalSeconds,2)} s`;
   }
-  document.getElementById('analysis-status').textContent=`${demo?'合成演示数据 · ':''}${sourceLabel} · 分析区间 ${this.clock(Math.max(start,timeline.start))}—${this.clock(end)}`;
+  document.getElementById('analysis-status').textContent=`${demo?'实车演示数据 · ':''}${sourceLabel} · 分析区间 ${this.clock(Math.max(start,timeline.start))}—${this.clock(end)}`;
   this.ready=true;this.resize();
  }
  export(id){
   const chart=this.charts.get(id);if(!chart||document.getElementById(id+'-empty').hidden===false)return;
-  const title=document.getElementById(id+'-title').textContent+(this.getContext().demo?'（合成演示数据）':''),image=chart.getRenderedCanvas({pixelRatio:2,backgroundColor:'#fff'}),canvas=document.createElement('canvas');
+  const title=document.getElementById(id+'-title').textContent+(this.getContext().demo?'（实车演示数据）':''),image=chart.getRenderedCanvas({pixelRatio:2,backgroundColor:'#fff'}),canvas=document.createElement('canvas');
   canvas.width=image.width;canvas.height=image.height+95;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#173343';ctx.textAlign='center';ctx.font='26px "Times New Roman", SimSun';ctx.fillText(title,canvas.width/2,40);ctx.drawImage(image,0,65);
   const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=id+'.png';a.click();
  }

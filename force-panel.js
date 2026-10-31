@@ -18,7 +18,7 @@ export class ForcePanel{
   for(const key of FORCE_KEYS){
    const def=ctx.fields.find(f=>f.key===key),configured=Number.isInteger(def?.start),value=configured?ctx.value(key):null,status=configured?ctx.freshness(key):null;
    host.querySelector(`[data-force-value="${key}"]`).textContent=configured?`${this.format(value,2)} kN`:'—';
-   host.querySelector(`[data-force-status="${key}"]`).textContent=!configured?'待提供 DBC 定义':status?.state==='stale'?'上次值 · 已过期':status?.state==='invalid'?'信号无效':value===null?'尚未收到有效数据':ctx.demo?'合成演示数据':ctx.live?'实时接入':'记录回放';
+   host.querySelector(`[data-force-status="${key}"]`).textContent=!configured?'待提供 DBC 定义':status?.state==='stale'?'上次值 · 已过期':status?.state==='invalid'?'信号无效':value===null?'尚未收到有效数据':ctx.demo?'实车演示数据':ctx.live?'实时接入':'记录回放';
    host.querySelector(`[data-force-value="${key}"]`).closest('article').classList.toggle('data-stale',status?.state==='stale');
    if(configured&&(ctx.timeline.series[key]||[]).some(p=>Number.isFinite(p[1])))valid++;
   }
